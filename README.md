@@ -1,0 +1,1 @@
+In this repository we explore the power of pytoch and mask rcnn to detect damages on solar panels. Additionaly we are utilizing streamlit to deploy the model that has been developt. 
