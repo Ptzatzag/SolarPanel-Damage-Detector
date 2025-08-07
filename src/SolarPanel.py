@@ -340,7 +340,7 @@ def train(model, dataset_train, dataset_val, device):
         
         # Save the best model 
         if avg_val_loss < best_avg_val_loss:
-            best_avg_val_loss = avg_train_loss
+            best_avg_val_loss = avg_val_loss
             checkpoint_path = os.path.join(args.logs, f"best_model_{epoch}.pth")
             torch.save(model.state_dict(), checkpoint_path)
             # Log model to wandb
@@ -348,7 +348,7 @@ def train(model, dataset_train, dataset_val, device):
             print(f"Saved best model at epoch {epoch+1} with val loss: {avg_val_loss:.4f}")
 
 
-        print(f"Epoch [{epoch+1}/{num_epochs}], Train Loss: {avg_train_loss.item():.4f}, Val Loss: {avg_val_loss.item():.4f}")    
+        print(f"Epoch [{epoch+1}/{num_epochs}], Train Loss: {avg_train_loss:.4f}, Val Loss: {avg_val_loss:.4f}")    
     
 
 def color_splash(image, mask):

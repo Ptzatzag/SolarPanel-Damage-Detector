@@ -9,7 +9,7 @@ from utils import load_model, preprocess_image
 st.title("🔍 Solar Panel Damage Detection")
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = load_model("C:\\Users\\panos\\CVision\\Logs\\best_model_7.pth", device)
+model = load_model("C:\\Users\\panos\\CVision\\Logs\\best_model.pth", device)
 
 uploaded_file = st.file_uploader("Upload an image of a solar panel", type=["jpg", "jpeg", "png"])
 
