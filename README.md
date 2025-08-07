@@ -20,7 +20,7 @@ SolarPanel-Damage-Detector/
 - Streamlit interface for real-time inference
 - Easily extendable and open-source
 
-## 🧪Instalation
+## ⚙️Instalation
 ```
 git clone https://github.com/Ptzatzag/SolarPanel-Damage-Detector.git
 cd SolarPanel-Damage-Detector
@@ -34,7 +34,7 @@ pip install -r requirements.txt
 ## 🧠Model Training 
 Model training is handled using PyTorch and Mask R-CNN. Detailed steps and results are documented in the notebooks/ directory.
 
-## 🍎Streamlit App 
+## 🌐Streamlit App 
 To run the Streamlit app:
 ```
 cd Deployment
