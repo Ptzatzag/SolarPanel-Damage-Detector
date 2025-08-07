@@ -22,7 +22,7 @@ if uploaded_file is not None:
     with torch.no_grad():
         output = model(image_tensor)[0]
 
-    threshold = 0.5
+    threshold = 0.8
     keep = output['scores'] > threshold
     boxes = output['boxes'][keep].cpu().numpy()
     labels = output['labels'][keep].cpu().numpy()
