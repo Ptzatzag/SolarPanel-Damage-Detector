@@ -34,15 +34,6 @@ import argparse
 import wandb
 import time
 
-wandb.init(project='SolarPanel-Damage-Detector',
-                name=f"run_{time.strftime('%Y%m%d-%H%M%S')}",
-                # config={
-                #     'epochs': num_epochs,
-                #     'batch_size': data,
-                #     'learning_rate': config.,
-                #     'optimizer': 'AdamW'
-                # }
-                )
 
 class SolarDataset(Dataset):
     def __init__(self,
@@ -484,6 +475,17 @@ if args.mode == "train":
     # Prepare datasets
     dataset_train = SolarDataset(dataset_dir=IMAGE_DATA_DIR, annotation_dir=ANNOTATION_JSON_PATH, transforms=SolarDataset._get_albumentations_transforms(train=True), mode="train", val_size=0.2)
     dataset_val = SolarDataset(dataset_dir=IMAGE_DATA_DIR, annotation_dir=ANNOTATION_JSON_PATH, transforms=None, mode="val", val_size=0.2)
+
+    wandb.init(project='SolarPanel-Damage-Detector',
+                name=f"run_{time.strftime('%Y%m%d-%H%M%S')}",
+                # config={
+                #     'epochs': num_epochs,
+                #     'batch_size': data,
+                #     'learning_rate': config.,
+                #     'optimizer': 'AdamW'
+                # }
+                )
+    wandb.watch(model, log="gradients", log_freq=30)
 
     train(model, dataset_train, dataset_val, device)
 
