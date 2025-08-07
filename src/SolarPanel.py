@@ -1,3 +1,5 @@
+## ToDo trim the code with config
+
 import torch 
 import numpy as np
 import json
@@ -86,8 +88,7 @@ class SolarDataset(Dataset):
             "area": (boxes[:, 3] - boxes[:, 1]) * (boxes[:, 2] - boxes[:, 0]),
             "iscrowd": torch.zeros((len(boxes),), dtype=torch.int64)
         }
-
-        # Albumentations expects numpy inputs
+        
         if self.transforms:
             transformed = self.transforms(
                 image=image,
@@ -95,18 +96,21 @@ class SolarDataset(Dataset):
                 bboxes=boxes.tolist(),
                 labels=class_ids.tolist()
             )
-            image = transformed["image"]
-            masks = torch.stack([torch.tensor(m) for m in transformed["masks"]])
-            boxes = torch.tensor(transformed["bboxes"])
+            image = transformed["image"]                         # Already a tensor
+            masks = transformed["masks"]                         # Already a list of tensors
+            boxes = torch.tensor(transformed["bboxes"])          # Still need to convert
             class_ids = torch.tensor(transformed["labels"])
 
             target.update({
                 "boxes": boxes,
                 "labels": class_ids,
-                "masks": masks,
+                "masks": torch.stack(masks) if isinstance(masks, list) else masks,
             })
-        image = torch.from_numpy(image).permute(2, 0, 1).float() / 255.0   # BE SURE WHEN TO CONVERT TO TENSOR
-        #print(image.shape)
+
+        # If no transforms, convert manually
+        else:
+            image = torch.from_numpy(image).permute(2, 0, 1).float() / 255.0
+            
         return image, target
         
     def _resolve_image_path(self, info):
@@ -173,7 +177,7 @@ class SolarDataset(Dataset):
         }
         return class_map.get(name.lower(), 1)
     
-    
+    @staticmethod
     def _get_albumentations_transforms(train=True):
         if train:
             return A.Compose([
@@ -453,8 +457,8 @@ if args.mode == "train":
     assert args.dataset, "Argument --dataset is required for training"
     config = SolarConfig()
     # Prepare datasets
-    dataset_train = SolarDataset(dataset_dir=IMAGE_DATA_DIR, annotation_dir=ANNOTATION_JSON_PATH, mode="train", val_size=0.2)
-    dataset_val = SolarDataset(dataset_dir=IMAGE_DATA_DIR, annotation_dir=ANNOTATION_JSON_PATH, mode="val", val_size=0.2)
+    dataset_train = SolarDataset(dataset_dir=IMAGE_DATA_DIR, annotation_dir=ANNOTATION_JSON_PATH, transforms=SolarDataset._get_albumentations_transforms(train=True), mode="train", val_size=0.2)
+    dataset_val = SolarDataset(dataset_dir=IMAGE_DATA_DIR, annotation_dir=ANNOTATION_JSON_PATH, transforms=None, mode="val", val_size=0.2)
 
     train(model, dataset_train, dataset_val, device)
 
