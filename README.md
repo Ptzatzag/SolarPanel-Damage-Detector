@@ -34,7 +34,7 @@ pip install -r requirements.txt
 ## 🧠Model Training 
 Model training is handled using PyTorch and Mask R-CNN. Detailed steps and results are documented in the notebooks/ directory.
 
-## 🍎Streamlit App 
+## 🌐Streamlit App 
 To run the Streamlit app:
 ```
 cd Deployment
