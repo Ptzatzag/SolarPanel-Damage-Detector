@@ -31,6 +31,18 @@ from albumentations.pytorch import ToTensorV2
 import datetime    
 import sys
 import argparse
+import wandb
+import time
+
+wandb.init(project='SolarPanel-Damage-Detector',
+                name=f"run_{time.strftime('%Y%m%d-%H%M%S')}",
+                # config={
+                #     'epochs': num_epochs,
+                #     'batch_size': data,
+                #     'learning_rate': config.,
+                #     'optimizer': 'AdamW'
+                # }
+                )
 
 class SolarDataset(Dataset):
     def __init__(self,
@@ -99,7 +111,7 @@ class SolarDataset(Dataset):
             image = transformed["image"]                         # Already a tensor
             masks = transformed["masks"]                         # Already a list of tensors
             boxes = torch.tensor(transformed["bboxes"])          # Still need to convert
-            class_ids = torch.tensor(transformed["labels"])
+            class_ids = torch.tensor(transformed["labels"], dtype=torch.int64)
 
             target.update({
                 "boxes": boxes,
@@ -161,7 +173,7 @@ class SolarDataset(Dataset):
             boxes.append([xmin, ymin, xmax, ymax])
 
         masks = torch.tensor(mask.transpose(2, 0, 1), dtype=torch.uint8)
-        class_ids = torch.tensor(class_ids, dtype=torch.int64)
+        class_ids = torch.tensor(class_ids, dtype=torch.int64)    # unnecessary commend out 
         boxes = torch.tensor(boxes, dtype=torch.float32)
         return masks, class_ids, boxes
     
@@ -184,9 +196,10 @@ class SolarDataset(Dataset):
                 A.HorizontalFlip(p=0.5),
                 A.RandomBrightnessContrast(p=0.2),
                 A.Rotate(limit=15, p=0.5),
+                A.Normalize(mean=[0.0,0.0,0.0], std=[1.0,1.0,1.0], max_pixel_value=255.0),   # Normalize the image pixels to the [0, 1]
                 ToTensorV2()
-            ], bbox_params=A.BboxParams(format='pascal_voc', label_fields=['labels']),
-            mask_params=A.MaskParams())
+            ], bbox_params=A.BboxParams(format='pascal_voc', label_fields=['labels']))
+            #mask_params=A.MaskParams())
         else:
             return A.Compose([ToTensorV2()]) 
         
@@ -305,32 +318,44 @@ def train(model, dataset_train, dataset_val, device):
         model.train()
         running_loss = 0.0
         best_avg_val_loss = float('inf')
+        # loop through our batch 
         for images, targets in data_loader:
             images = [img.to(device) for img in images]
             targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
 
             loss_dict = model(images, targets)
-            # print(loss_dict)
             losses = sum(loss for loss in loss_dict.values())
 
             optimizer.zero_grad()
-            losses.backward()
-            print(losses)
-            for param_group in optimizer.param_groups: 
-                param_group['lr'] = get_lr(epoch)
-                
+            losses.backward()        
             optimizer.step()
             
             running_loss += losses.item()
-            avg_train_loss = running_loss / len(data_loader)
-            avg_val_loss = evaluate(model, dataset_val, device)
+        # Update the learning rate per epoch
+        for param_group in optimizer.param_groups: 
+            param_group['lr'] = get_lr(epoch)
             
-            # Save the best model 
-            if avg_val_loss < best_avg_val_loss:
-                best_avg_val_loss = avg_train_loss
-                checkpoint_path = os.path.join(args.logs, f"best_model_{epoch}.pth")
-                torch.save(model.state_dict(), checkpoint_path)
-                print(f"Saved best model at epoch {epoch+1} with val loss: {avg_val_loss:.4f}")
+        avg_train_loss = running_loss / len(data_loader)
+        avg_val_loss = evaluate(model, dataset_val, device)
+        current_lr = optimizer.param_groups[0]['lr']
+        
+        # log to wandb
+        wandb.log({
+            'epoch': epoch+1,
+            'train_loss': avg_train_loss,
+            'val_loss': avg_val_loss,
+            'learning_rate': current_lr
+        })
+        
+        # Save the best model 
+        if avg_val_loss < best_avg_val_loss:
+            best_avg_val_loss = avg_train_loss
+            checkpoint_path = os.path.join(args.logs, f"best_model_{epoch}.pth")
+            torch.save(model.state_dict(), checkpoint_path)
+            # Log model to wandb
+            wandb.save(checkpoint_path)
+            print(f"Saved best model at epoch {epoch+1} with val loss: {avg_val_loss:.4f}")
+
 
         print(f"Epoch [{epoch+1}/{num_epochs}], Train Loss: {avg_train_loss.item():.4f}, Val Loss: {avg_val_loss.item():.4f}")    
     
@@ -455,7 +480,7 @@ print("Logs: ", args.logs)
 if args.mode == "train":
     config = SolarConfig()
     assert args.dataset, "Argument --dataset is required for training"
-    config = SolarConfig()
+    #config = SolarConfig()
     # Prepare datasets
     dataset_train = SolarDataset(dataset_dir=IMAGE_DATA_DIR, annotation_dir=ANNOTATION_JSON_PATH, transforms=SolarDataset._get_albumentations_transforms(train=True), mode="train", val_size=0.2)
     dataset_val = SolarDataset(dataset_dir=IMAGE_DATA_DIR, annotation_dir=ANNOTATION_JSON_PATH, transforms=None, mode="val", val_size=0.2)
