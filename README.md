@@ -20,7 +20,7 @@ SolarPanel-Damage-Detector/
 - Streamlit interface for real-time inference
 - Easily extendable and open-source
 
-## 🧪Instalation
+## ⚙️Instalation
 ```
 git clone https://github.com/Ptzatzag/SolarPanel-Damage-Detector.git
 cd SolarPanel-Damage-Detector
