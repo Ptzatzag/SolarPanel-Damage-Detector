@@ -34,6 +34,8 @@ import argparse
 import wandb
 import time
 
+class_names = ['Clean', 'Dust', 'Physical Damage', 'Electrical Damage', 'Bird Drop', 'Snow', ]
+
 
 class SolarDataset(Dataset):
     def __init__(self,
@@ -132,7 +134,7 @@ class SolarDataset(Dataset):
             shape = region["shape_attributes"]
             attrs = region.get("region_attributes", {})
             shape_type = shape.get("name")
-            class_name = attrs.get("class", "Clean").lower()   # the key here is type not class 
+            class_name = attrs.get("type", "Clean").lower()   # the key here is type not class 
             class_id = self._map_class_name(class_name)
             class_ids.append(class_id)
 
@@ -401,7 +403,7 @@ def detect_and_color_splash_pytorch(model, image_path, device, threshold=0.8):
     print(f"Detections: {len(output['scores'])}, Above threshold: {keep.sum().item()}")
     # Create color splash
     splash = color_splash(image_np, masks.cpu().numpy())
-    final_image = draw_boxes_on_splash(splash, output, threshold)
+    final_image = draw_boxes_on_splash(splash, output, threshold, class_names=class_names)
 
     file_name = "/content/drive/MyDrive/CVision/splash_with_boxes_{:%Y%m%dT%H%M%S}.png".format(datetime.datetime.now())
     cv2.imwrite(file_name, cv2.cvtColor(final_image, cv2.COLOR_RGB2BGR))
