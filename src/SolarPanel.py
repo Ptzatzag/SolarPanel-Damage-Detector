@@ -3,7 +3,6 @@
 import torch 
 import numpy as np
 import json
-import sys 
 import os 
 import torchvision.transforms as T
 import albumentations as A
@@ -33,174 +32,249 @@ import sys
 import argparse
 import wandb
 import time
+from pycocotools import mask as pycoco_mask
 
-class_names = ['Clean', 'Dust', 'Physical Damage', 'Electrical Damage', 'Bird Drop', 'Snow', ]
+class_names = ['Clean', 'Dust', 'Physical Damage', 'Electrical Damage', 'Bird Drop', 'Snow', ]      
+IMAGE_DATA_DIR = 'c:/Users/panos/CVision/Data'
+ANNOTATION_JSON_PATH = 'c:/Users/panos/CVision/Data/via_project_10Jul2025_15h51m_json.json'
+
 
 
 class SolarDataset(Dataset):
     def __init__(self,
                  dataset_dir: str,
                  annotation_dir: str,
-                 transforms:Optional[Callable]= None,
+                 transforms: Optional[Callable]=None,
                  mode: str = "train",
                  val_size: float = 0.2) -> None:
         self.dataset_dir = dataset_dir
-        self.annatation_dir = annotation_dir
         self.transforms = transforms
-        self.mode = mode
-        self.val_size = val_size
-    
+
         with open(annotation_dir) as f:
-            annotations_dict = json.load(f)
-            
-        self.image_infos = list(annotations_dict.values())
-        self.image_ids = list(annotations_dict.keys())
+            annotation_dict = json.load(f)
 
-        # Optional: Split into train/val here
+        # Extract information from COCO dict
+        #self.image_infos = list(annotation_dict.get("images"))
+        #self.image_ids = [img['id'] for img in annotation_dict.get("images")]   # images idx
+        #self.annot_ids = [img['image_id'] for img in annotation_dict.get("annotations")]   # annotations idx
+
+        self.annotation_info = [img for img in annotation_dict.get("annotations")]   # keys: ['id', 'image_id', 'category_id', 'segmentation', 'area', 'bbox', 'iscrowd', 'attributes']
+        #self.segmentation_info = [img['segmentation'] for img in annotation_dict.get("annotations")]
+        #self.bbox = [img['bbox'] for img in annotation_dict.get("annotations")]
+        #self.category_id = [img['category_id'] for img in annotation_dict.get("annotations")]
+
+        # Build a map of image_id to image_info for efficient lookup
+        self.image_id_to_info = {img['id']: img for img in annotation_dict.get("images")}
+
+
+        self.map_imgID_to_annotations = {}
+        for ann_info in self.annotation_info:
+            # print(idx, ann_info)
+            key = ann_info.get('image_id')
+            if key in self.map_imgID_to_annotations:
+                self.map_imgID_to_annotations[key].append(ann_info)
+            else:
+                self.map_imgID_to_annotations[key] = [ann_info]
+
+
+        # Filter out images with no annotations
+        all_image_ids_with_annotations = list(self.map_imgID_to_annotations.keys())
+
+
+        # Get all image IDs that have at least one annotation
         if mode in ["train", "val"]:
-            from sklearn.model_selection import train_test_split
-            train_ids, val_ids = train_test_split(self.image_ids, test_size=val_size, random_state=99)
-            self.image_ids = train_ids if mode == "train" else val_ids
-            self.image_infos = [annotations_dict[k] for k in self.image_ids]
+            train_ids, val_ids = train_test_split(all_image_ids_with_annotations, test_size=val_size, random_state=99)
 
-        # Filter out images with no regions
-        self.image_infos = [info for info in self.image_infos if info.get("regions")]
-        
+            self.image_ids = train_ids if mode == "train" else val_ids
+        else:
+            self.image_ids = all_image_ids_with_annotations
+
+        self.image_infos = [self.image_id_to_info[k] for k in self.image_ids]
+        self.annotation_info = [self.map_imgID_to_annotations[k] for k in self.image_ids]    ### Check this
+
     def __len__(self):
-        return len(self.image_infos)
-    
+        return len(self.image_ids)
+
     def __getitem__(self, idx):
         info = self.image_infos[idx]
-        filename = info["filename"]
+        image_id = self.image_ids[idx]
+        # Load image
         image_path = self._resolve_image_path(info)
-
-        #image = skimage.io.imread(image_path)
         image = Image.open(image_path).convert("RGB")
         image = np.array(image)
-            
+
+        height, width = info['height'], info['width']
+
+
         if image.dtype != np.uint8:
             image = image.astype(np.uint8)
 
-        height, width = image.shape[:2]
+        # Process annotations for this image
+        annotations = self.map_imgID_to_annotations.get(image_id, [])
+       ############################################################## 
+####### Run though annotations and get the boxes and masks for each key
+        masks = []
+        boxes = []
+        boxes_xyxy = []
+        labels = []
+        iscrowd_flags = []
+        annotations = self.map_imgID_to_annotations.get(image_id, [])
 
-        masks, class_ids, boxes = self._generate_instance_masks(info, height, width)
+        for ann in annotations:
+            # Convert COCO bbox (x, y, w, h) → xyxy
+            x_min, y_min, w, h = ann['bbox']
+
+            # Skip invalid boxes
+            if w <= 0 or h <= 0:
+                continue
+                
+            x_max = x_min + w
+            y_max = y_min + h
+
+            # if w > 0 and h > 0:  # filter invalid boxes
+            #     boxes_xyxy.append([x_min, y_min, x_max, y_max])
+            # else:
+            #     continue  # skip invalid
+
+
+            # Clamp coordinates to image boundaries
+            x_min = max(0, min(x_min, width - 1))
+            y_min = max(0, min(y_min, height - 1))
+            x_max = max(x_min + 1, min(x_max, width))
+            y_max = max(y_min + 1, min(y_max, height))
+            
+            boxes_xyxy.append([x_min, y_min, x_max, y_max])
+
+            rle_mask = ann['segmentation']
+            rles = pycoco_mask.frPyObjects(rle_mask, height, width)
+
+            decoded_mask = pycoco_mask.decode(rles)
+            if decoded_mask.ndim == 2:  # single mask
+                masks.append(decoded_mask)
+            else:  # multiple masks from the same annotation
+                for i in range(decoded_mask.shape[-1]):
+                    masks.append(decoded_mask[..., i])
+
+            # masks.append(decoded_mask)
+            boxes.append(ann['bbox'])
+            labels.append(ann['category_id'])
+            iscrowd_flags.append(ann['iscrowd'])
+
+
+        # Convert to tensors
+        boxes_tensor = torch.tensor(boxes_xyxy, dtype=torch.float32) if boxes_xyxy else torch.empty((0, 4), dtype=torch.float32)
+        #boxes_tensor = torch.tensor(boxes, dtype=torch.float32) if boxes else torch.empty((0, 4), dtype=torch.float32)
+        labels_tensor = torch.tensor(labels, dtype=torch.int64) if labels else torch.empty((0,), dtype=torch.int64)
+        masks_tensor = torch.stack([torch.from_numpy(m).to(torch.uint8) for m in masks]) if masks else torch.empty((0, height, width), dtype=torch.uint8)
+        iscrowd_tensor = torch.tensor(iscrowd_flags, dtype=torch.int64) if iscrowd_flags else torch.empty((0,), dtype=torch.int64)
+        # Calculate area for COCO (bbox = [x, y, w, h])
+       # area_tensor = boxes_tensor[:, 2] * boxes_tensor[:, 3] if boxes_tensor.numel() > 0 else torch.tensor([], dtype=torch.float32)
+
+        # Correct area calculation (now in xyxy format)
+        if boxes_tensor.numel() > 0:
+            area_tensor = (boxes_tensor[:, 2] - boxes_tensor[:, 0]) * (boxes_tensor[:, 3] - boxes_tensor[:, 1])
+        else:
+            area_tensor = torch.tensor([], dtype=torch.float32)
+
 
         target = {
-            "boxes": boxes,
-            "labels": class_ids,
-            "masks": masks,
-            "image_id": torch.tensor([idx]),
-            "area": (boxes[:, 3] - boxes[:, 1]) * (boxes[:, 2] - boxes[:, 0]),
-            "iscrowd": torch.zeros((len(boxes),), dtype=torch.int64)
+            "boxes": boxes_tensor,
+            "labels": labels_tensor,
+            "masks": masks_tensor,
+            "image_id": torch.tensor([image_id]),
+            "area": area_tensor,
+            "iscrowd": iscrowd_tensor#self.annot_ids[idx].get("iscrowd")
         }
-        
+
         if self.transforms:
-            transformed = self.transforms(
-                image=image,
-                masks=masks.numpy(),
-                bboxes=boxes.tolist(),
-                labels=class_ids.tolist()
-            )
-            image = transformed["image"]                         # Already a tensor
-            masks = transformed["masks"]                         # Already a list of tensors
-            boxes = torch.tensor(transformed["bboxes"])          # Still need to convert
-            class_ids = torch.tensor(transformed["labels"], dtype=torch.int64)
+          # Albumentations expects NumPy arrays for image, masks, and lists for bboxes/labels
+          # It returns a dictionary, and the outputs are typically already tensors if ToTensorV2 is used.
+          transformed = self.transforms(
+              image=image,
+              masks=masks_tensor.cpu().numpy() if masks_tensor.numel() > 0 else np.empty((0, image.shape[0], image.shape[1]), dtype=np.uint8),
+              bboxes=boxes_tensor.cpu().tolist() if boxes_tensor.numel() > 0 else [],
+              labels=labels_tensor.cpu().tolist() if labels_tensor.numel() > 0 else []
+          )
+          image = transformed["image"] # This will already be a tensor if ToTensorV2 is in transforms
 
-            target.update({
-                "boxes": boxes,
-                "labels": class_ids,
-                "masks": torch.stack(masks) if isinstance(masks, list) else masks,
-            })
+          # Ensure transformed masks are correctly handled (could be tensor or list of tensors)
+          if isinstance(transformed["masks"], list): # If transform returns list of masks (e.g. sometimes without ToTensorV2)
+              target["masks"] = torch.stack(transformed["masks"]) if transformed["masks"] else torch.empty((0, image.shape[1], image.shape[2]), dtype=torch.uint8)
+          else: # If transform returns a single stacked tensor for masks
+              target["masks"] = transformed["masks"] # This should already be a tensor
 
-        # If no transforms, convert manually
+          # Convert transformed bboxes and labels back to tensors
+          target["boxes"] = torch.tensor(transformed["bboxes"], dtype=torch.float32) if transformed["bboxes"] else torch.empty((0, 4), dtype=torch.float32)
+          target["labels"] = torch.tensor(transformed["labels"], dtype=torch.int64) if transformed["labels"] else torch.empty((0,), dtype=torch.int64)
+
+          # Recalculate area and iscrowd if bounding boxes changed during transform
+          target["area"] = (target["boxes"][:, 3] - target["boxes"][:, 1]) * (target["boxes"][:, 2] - target["boxes"][:, 0]) if target["boxes"].numel() > 0 else torch.tensor([], dtype=torch.float32)
+          target["iscrowd"] = torch.zeros((len(target["boxes"]),), dtype=torch.int64) # All transformed objects are considered non-crowd
+
         else:
-            image = torch.from_numpy(image).permute(2, 0, 1).float() / 255.0
-            
+          # If no transforms, manually convert image to tensor (C, H, W) and normalize
+          image = torch.from_numpy(image).permute(2, 0, 1).float() / 255.0
         return image, target
-        
+
+
+
+        ##########################################
+        ########## TRANSFORMATIONS HERE ##########
+        ##########################################
+
+
+        # image = torch.from_numpy(image).permute(2,0,1).float() / 255.0   # understand this
+        # return image, target
+
     def _resolve_image_path(self, info):
-        category = info.get("filename", "").split()[0]  # fallback if category is in path eg ~/Clean/Clean (2).jpg
-        return os.path.join(self.dataset_dir, category, info["filename"])
-        
-    def _generate_instance_masks(self, info, height, width):
-        polygons = info["regions"]
-        num_instances = len(polygons)
+        category = info.get("file_name", "").split()[0]
+        return os.path.join(self.dataset_dir, category, info.get("file_name", ""))
 
-        mask = np.zeros((height, width, num_instances), dtype=np.uint8)
-        class_ids = []
-        boxes = []
-
-        for i, region in enumerate(polygons):
-            shape = region["shape_attributes"]
-            attrs = region.get("region_attributes", {})
-            shape_type = shape.get("name")
-            class_name = attrs.get("type", "Clean").lower()   # the key here is type not class 
-            class_id = self._map_class_name(class_name)
-            class_ids.append(class_id)
-
-            
-            ## Check If I need to add another mask shape
-            # Create mask
-            if shape_type == "polygon":
-                x = shape.get("all_points_x")
-                y = shape.get("all_points_y")
-                rr, cc = skimage.draw.polygon(y, x)
-            elif shape_type == "rect":
-                x, y = shape["x"], shape["y"]
-                h, w = shape["height"], shape["width"]
-                rr, cc = skimage.draw.rectangle(start=(y, x), extent=(h, w))   # row and column coordinates
-            elif shape_type == "polyline":
-                x = shape.get('all_points_x')
-                y = shape.get('all_points_y')
-                rr, cc = skimage.draw.polygon(y,x)
-            else:
-                continue  # skip unsupported types
-
-            rr = np.clip(np.round(rr).astype(int), 0, height - 1)
-            cc = np.clip(np.round(cc).astype(int), 0, width - 1)
-            mask[rr, cc, i] = 1   # highlight the region of interest
-
-            pos = np.where(mask[:, :, i])
-            ymin, ymax = pos[0].min(), pos[0].max()
-            xmin, xmax = pos[1].min(), pos[1].max()
-            boxes.append([xmin, ymin, xmax, ymax])
-
-        masks = torch.tensor(mask.transpose(2, 0, 1), dtype=torch.uint8)
-        class_ids = torch.tensor(class_ids, dtype=torch.int64)    # unnecessary commend out 
-        boxes = torch.tensor(boxes, dtype=torch.float32)
-        return masks, class_ids, boxes
-    
-    
-    def _map_class_name(self, name):
-        class_map = {
-            "clean": 1,
-            "dust": 2,
-            "physical": 3,
-            "electrical": 4,
-            "bird": 5,
-            "snow": 6
-        }
-        return class_map.get(name.lower(), 1)
-    
     @staticmethod
-    def _get_albumentations_transforms(train=True):
+    def _get_albumentations_transforms(train):
+        IMAGENET_MEAN = [0.485, 0.456, 0.406]
+        IMAGENET_STD = [0.229, 0.224, 0.225]
+
         if train:
             return A.Compose([
                 A.HorizontalFlip(p=0.5),
                 A.RandomBrightnessContrast(p=0.2),
                 A.Rotate(limit=15, p=0.5),
-                A.Normalize(mean=[0.0,0.0,0.0], std=[1.0,1.0,1.0], max_pixel_value=255.0),   # Normalize the image pixels to the [0, 1]
-                ToTensorV2()
-            ], bbox_params=A.BboxParams(format='pascal_voc', label_fields=['labels']))
-            #mask_params=A.MaskParams())
-        else:
-            return A.Compose([ToTensorV2()]) 
-        
-        
-        
-IMAGE_DATA_DIR = 'c:/Users/panos/CVision/Data'
-ANNOTATION_JSON_PATH = 'c:/Users/panos/CVision/Data/via_project_10Jul2025_15h51m_json.json'
+                # add more transformations 
+                A.VerticalFlip(p=0.3),
+                A.GaussNoise(var_limit=(10.0, 50.0), p=0.3),
+                A.RandomSunFlare(flare_roi=(0, 0, 1, 0.5), src_radius=400, p=0.1),  # Sun glare
+                A.RandomShadow(shadow_roi=(0, 0.5, 1, 1), p=0.2),  # Shadows
+                A.CoarseDropout(
+                              max_holes=8,
+                              hole_height_range=(0.05, 0.2),  # fraction of image height
+                              hole_width_range=(0.05, 0.2),   # fraction of image width
+                              p=0.2
+                          ),  # Simulate dirt spots
 
+                # Normalize using ImageNet's mean and std
+                A.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD, max_pixel_value=255.0),
+                # ToTensorV2 should generally be the last step,
+                # converting NumPy arrays to PyTorch tensors and permuting dimensions (H, W, C) -> (C, H, W)
+                ToTensorV2()
+            ], bbox_params=A.BboxParams(
+                format='pascal_voc', # Ensure this matches your [xmin, ymin, xmax, ymax] format
+                label_fields=['labels']
+            )
+           #mask_params=A.MaskParams() # <-- IMPORTANT: Uncomment and enable this for mask transformations
+           )
+        else:
+            # For validation/inference, typically only normalization and tensor conversion are needed
+            return A.Compose([
+                A.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD, max_pixel_value=255.0),
+                ToTensorV2()
+            ], bbox_params=A.BboxParams(
+                format='pascal_voc', 
+                label_fields=['labels']
+            ),
+            #mask_params=A.MaskParams() # Also needed for validation if masks are part of output
+            )
+   
 
 class SolarConfig():
     """Configuration for training on MS COCO.
@@ -306,11 +380,11 @@ def train(model, dataset_train, dataset_val, device):
         param.requires_grad = False   # Freeze backbone
 
     optimizer = optim.AdamW(model.parameters(), lr=config.LEARNING_RATE, weight_decay=config.WEIGHT_DECAY)
+    best_avg_val_loss = float('inf')
 
     for epoch in range(num_epochs):
         model.train()
         running_loss = 0.0
-        best_avg_val_loss = float('inf')
         # loop through our batch 
         for images, targets in data_loader:
             images = [img.to(device) for img in images]
@@ -476,16 +550,10 @@ if args.mode == "train":
     #config = SolarConfig()
     # Prepare datasets
     dataset_train = SolarDataset(dataset_dir=IMAGE_DATA_DIR, annotation_dir=ANNOTATION_JSON_PATH, transforms=SolarDataset._get_albumentations_transforms(train=True), mode="train", val_size=0.2)
-    dataset_val = SolarDataset(dataset_dir=IMAGE_DATA_DIR, annotation_dir=ANNOTATION_JSON_PATH, transforms=None, mode="val", val_size=0.2)
+    dataset_val = SolarDataset(dataset_dir=IMAGE_DATA_DIR, annotation_dir=ANNOTATION_JSON_PATH, transforms=SolarDataset._get_albumentations_transforms(train=False), mode="val", val_size=0.2)
 
     wandb.init(project='SolarPanel-Damage-Detector',
                 name=f"run_{time.strftime('%Y%m%d-%H%M%S')}",
-                # config={
-                #     'epochs': num_epochs,
-                #     'batch_size': data,
-                #     'learning_rate': config.,
-                #     'optimizer': 'AdamW'
-                # }
                 )
     wandb.watch(model, log="gradients", log_freq=30)
 
