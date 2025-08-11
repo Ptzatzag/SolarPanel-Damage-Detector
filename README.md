@@ -17,7 +17,7 @@ SolarPanel-Damage-Detector/
 - Custom dataset loading and preprocessing
 - Evaluation metrics and visualization tools
 - Streamlit interface for real-time inference
-- Easily extendable and open-source
+- Open-source
 
 ## ⚙️Instalation
 ```
