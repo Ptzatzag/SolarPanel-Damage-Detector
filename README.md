@@ -28,9 +28,6 @@ pip install -r requirements.txt
 
 ```
 
-## 🖼️Example Output
-
-
 ## 🧠Model Training 
 Model training is handled using PyTorch and Mask R-CNN. Detailed steps and results are documented in the notebooks/ directory.
 
@@ -40,10 +37,6 @@ To run the Streamlit app:
 cd Deployment
 streamlit run app.py
 ```
-
-
-## 📌ToDo 
-
 
 ## 📝License 
 This project is licensed under the MIT License. See the LICENSE file for details.  
