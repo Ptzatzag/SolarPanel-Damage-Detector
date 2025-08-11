@@ -4,7 +4,6 @@ This project leverages **PyTorch** and **Mask R-CNN** to automatically detect da
 ```
 SolarPanel-Damage-Detector/
 │
-├── notebooks/         # Exploratory notebooks for data analysis and model experimentation
 ├── src/               # Source code including model training, utils, and inference logic
 ├── Deployment/        # Streamlit app and deployment-related scripts
 ├── README.md          # Project overview and usage instructions
