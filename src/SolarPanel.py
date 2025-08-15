@@ -1,4 +1,7 @@
-## ToDo trim the code with config
+## ToDo
+# trim the code with config
+# change the splas functions 
+##
 
 import torch 
 import numpy as np
@@ -21,7 +24,6 @@ from torch.utils.data import Dataset
 import torchvision.transforms as T
 from torch.utils.data import DataLoader
 import torch.optim as optim
-from PIL import Image
 from torchvision import transforms
 import math
 import cv2
@@ -33,6 +35,11 @@ import argparse
 import wandb
 import time
 from pycocotools import mask as pycoco_mask
+from pycocotools.coco import COCO
+from pycocotools.cocoeval import COCOeval
+import json 
+import io
+
 
 class_names = ['Clean', 'Dust', 'Physical Damage', 'Electrical Damage', 'Bird Drop', 'Snow', ]      
 IMAGE_DATA_DIR = 'c:/Users/panos/CVision/Data'
@@ -54,22 +61,16 @@ class SolarDataset(Dataset):
             annotation_dict = json.load(f)
 
         # Extract information from COCO dict
-        #self.image_infos = list(annotation_dict.get("images"))
-        #self.image_ids = [img['id'] for img in annotation_dict.get("images")]   # images idx
-        #self.annot_ids = [img['image_id'] for img in annotation_dict.get("annotations")]   # annotations idx
-
         self.annotation_info = [img for img in annotation_dict.get("annotations")]   # keys: ['id', 'image_id', 'category_id', 'segmentation', 'area', 'bbox', 'iscrowd', 'attributes']
-        #self.segmentation_info = [img['segmentation'] for img in annotation_dict.get("annotations")]
-        #self.bbox = [img['bbox'] for img in annotation_dict.get("annotations")]
-        #self.category_id = [img['category_id'] for img in annotation_dict.get("annotations")]
-
-        # Build a map of image_id to image_info for efficient lookup
+        
+        # The following inclues only one annotation per image
+        # Lookup table of all annotations of each image, with keys: image_id and values: dict{annotations}
         self.image_id_to_info = {img['id']: img for img in annotation_dict.get("images")}
 
 
+        # This should be the right one  
         self.map_imgID_to_annotations = {}
         for ann_info in self.annotation_info:
-            # print(idx, ann_info)
             key = ann_info.get('image_id')
             if key in self.map_imgID_to_annotations:
                 self.map_imgID_to_annotations[key].append(ann_info)
@@ -327,7 +328,7 @@ def get_model(num_classes):
     model.roi_heads.mask_predictor = MaskRCNNPredictor(in_features_mask, hidden_layer, num_classes)
     return model
     
-def evaluate(model, dataset_val, device):
+def calc_validation_loss(model, dataset_val, device):
     model.train()
     data_loader = DataLoader(dataset_val,
                              batch_size=1,
@@ -340,12 +341,123 @@ def evaluate(model, dataset_val, device):
             targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
 
             loss_dict = model(images, targets)
-            # print(loss_dict)
             losses = sum(loss for loss in loss_dict.values())
             val_loss += losses.item()
 
     avg_val_loss = val_loss / len(data_loader)
     return avg_val_loss
+
+
+
+def evaluate(model, dataset_val, device, annotation_dir):
+    model.eval()
+    
+    data_loader = DataLoader(dataset_val,
+                            batch_size=1,
+                            shuffle=False,
+                            collate_fn=lambda x: tuple(zip(*x)))
+    
+    predictions = []  
+    
+
+    image_ids_val = sorted(dataset_val.image_ids) 
+    print("Validation image IDs: ", image_ids_val)
+    with torch.no_grad():
+        for images, targets in data_loader:
+            images = [img.to(device) for img in images]
+            targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
+            
+            outputs = model(images) 
+
+            # Process outputs and convert to COCO format
+            for img_idx, output in enumerate(outputs):
+                
+                image_id = targets[img_idx]['image_id'].item() 
+                
+                # Check if model predicted any instances
+                if len(output['boxes']) == 0:
+                    continue 
+
+                # Filter out predictions with low confidence scores (e.g., < 0.05 or 0.1)
+                score_threshold = 0.1 
+                keep = output['scores'] > score_threshold
+
+                boxes = output['boxes'][keep].cpu().numpy()
+                labels = output['labels'][keep].cpu().numpy()
+                scores = output['scores'][keep].cpu().numpy()
+                masks = output['masks'][keep].cpu().numpy() 
+                
+                
+                # A common threshold for Mask R-CNN outputs is 0.5
+                masks = (masks > 0.5).astype(np.uint8) 
+
+                # Iterate through each detected instance
+                for j in range(len(boxes)):
+                    bbox = boxes[j]
+                    label = labels[j]
+                    score = scores[j]
+                    mask = masks[j][0]# if masks[j].ndim == 4 else masks[j] # Remove channel dim if present
+
+                    # Convert bounding box from [xmin, ymin, xmax, ymax] to [xmin, ymin, width, height]
+                    bbox_coco = [
+                        float(bbox[0]),
+                        float(bbox[1]),
+                        float(bbox[2] - bbox[0]),
+                        float(bbox[3] - bbox[1])
+                    ]
+                    
+                    #mask = (mask > 0.5).astype(np.uint8)
+                    # Ensure mask is contiguous for RLE encoding
+                    mask = np.asfortranarray(mask)
+                    # Convert binary mask to RLE format
+                    rle = pycoco_mask.encode(mask)
+                    # Convert RLE counts to string for JSON serialization
+                    rle['counts'] = rle['counts'].decode('utf-8') 
+
+                    predictions.append({
+                        "image_id": image_id,
+                        "category_id": int(label), # Ensure category_id is int
+                        "bbox": bbox_coco,
+                        "score": float(score),
+                        "segmentation": rle
+                    })
+    
+    # --- COCO Evaluation ---
+    coco_gt = COCO(annotation_dir)
+
+    if not predictions:
+        print("No predictions generated for evaluation. mAP will be 0.")
+        return 0.0, 0.0 # Return 0 for both bbox and mask mAP if no predictions
+
+    print("Predictions: ", predictions)
+    coco_dt = coco_gt.loadRes(predictions) 
+
+    # --- Evaluate bounding box detections ---
+    old_stdout = sys.stdout
+    sys.stdout = io.StringIO()
+
+    print("\n--- Evaluating Bounding Boxes ---")
+    coco_eval_bbox = COCOeval(coco_gt, coco_dt, 'bbox')
+    # Filter to only evaluate images that were actually in the validation dataset
+    coco_eval_bbox.params.imgIds = image_ids_val 
+    coco_eval_bbox.evaluate()
+    coco_eval_bbox.accumulate()
+    coco_eval_bbox.summarize()   #  final summary statistics 
+    mAP_bbox = coco_eval_bbox.stats[0] 
+
+    print("\n--- Evaluating Masks ---")
+    coco_eval_mask = COCOeval(coco_gt, coco_dt, 'segm') 
+    coco_eval_mask.params.imgIds = image_ids_val
+    coco_eval_mask.evaluate()
+    coco_eval_mask.accumulate()
+    coco_eval_mask.summarize()
+    mAP_mask = coco_eval_mask.stats[0] 
+
+    captured_output = sys.stdout.getvalue()
+    sys.stdout = old_stdout
+    print(captured_output) 
+
+    return mAP_bbox, mAP_mask
     
 
 max_lr = 6e-3 
@@ -354,18 +466,12 @@ warmup_steps = 10
 num_epochs = 30 
  
 def get_lr(it):
-        # 1) linear warmup for warmup_iters steps
         if it < warmup_steps:
             return max_lr * (it+1) / (warmup_steps+1)
-        # 2) in between, use cosine decay down to min learning rate
-        #decay_ratio = (it - warmup_steps) / (num_epochs - warmup_steps)
-        # Clamp decay_ratio to [0, 1] to prevent assertion errors in case of misaligned inputs
+        # Clamp decay_ratio to [0, 1] 
         decay_ratio = min(1.0, max(0.0, (it - warmup_steps) / (num_epochs - warmup_steps)))
         assert 0 <= decay_ratio <= 1 
         coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio))   # coeff starts at 1 and goes to 0
-        import matplotlib.pyplot as plt
-        lrs = [get_lr(i) for i in range(num_epochs)]
-        plt.plot(lrs); plt.title("Learning Rate Schedule"); plt.show()
         return min_lr + coeff * (max_lr - min_lr)
     
     
@@ -403,7 +509,10 @@ def train(model, dataset_train, dataset_val, device):
             param_group['lr'] = get_lr(epoch)
             
         avg_train_loss = running_loss / len(data_loader)
-        avg_val_loss = evaluate(model, dataset_val, device)
+        avg_val_loss = calc_validation_loss(model, dataset_val, device)
+        mAP_bbox, mAP_mask = evaluate(model, dataset_val, device, ANNOTATION_JSON_PATH)
+
+        
         current_lr = optimizer.param_groups[0]['lr']
         
         # log to wandb
@@ -411,7 +520,9 @@ def train(model, dataset_train, dataset_val, device):
             'epoch': epoch+1,
             'train_loss': avg_train_loss,
             'val_loss': avg_val_loss,
-            'learning_rate': current_lr
+            'learning_rate': current_lr,
+            'mAP_bbox': mAP_bbox,
+            'mAP_mask': mAP_mask
         })
         
         # Save the best model 
@@ -425,7 +536,9 @@ def train(model, dataset_train, dataset_val, device):
 
 
         print(f"Epoch [{epoch+1}/{num_epochs}], Train Loss: {avg_train_loss:.4f}, Val Loss: {avg_val_loss:.4f}")    
-    
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
 
 def color_splash(image, mask):
     # If no masks detected, return grayscale image
