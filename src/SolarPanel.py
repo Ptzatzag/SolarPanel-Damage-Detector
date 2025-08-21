@@ -27,8 +27,6 @@ import torch.optim as optim
 from torchvision import transforms
 import math
 import cv2
-import albumentations as A
-from albumentations.pytorch import ToTensorV2
 import datetime    
 import sys
 import argparse
@@ -482,8 +480,8 @@ def train(model, dataset_train, dataset_val, device):
                              shuffle=True,
                              collate_fn=lambda x: tuple(zip(*x)))
     
-    for param in model.backbone.parameters():
-        param.requires_grad = False   # Freeze backbone
+    # for param in model.backbone.parameters():
+    #     param.requires_grad = False   # Freeze backbone, probably not because the detector has a specific task! 
 
     optimizer = optim.AdamW(model.parameters(), lr=config.LEARNING_RATE, weight_decay=config.WEIGHT_DECAY)
     best_avg_val_loss = float('inf')
