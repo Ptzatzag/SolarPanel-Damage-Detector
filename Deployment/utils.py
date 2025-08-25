@@ -18,7 +18,7 @@ def get_model(num_classes):
     return model
 
 def load_model(model_path, device):
-    num_classes = 1 + 6  # background + 6 solar damage classes
+    num_classes = 1 + 1  # background + 6 solar damage classes
     model = maskrcnn_resnet50_fpn(weights="DEFAULT")   # Here we load the weights
     in_features = model.roi_heads.box_predictor.cls_score.in_features
     model.roi_heads.box_predictor = FastRCNNPredictor(in_features, num_classes)
