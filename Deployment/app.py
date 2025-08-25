@@ -5,11 +5,18 @@ from PIL import Image, ImageDraw, ImageFont
 import torch
 import numpy as np
 from utils import load_model, preprocess_image
+from huggingface_hub import hf_hub_download
 
-st.title("🔍 Solar Panel Damage Detection")
+# Download weights from HF Hub
+weight_path = hf_hub_download(
+    repo_id="Ptzatzag/solar-panel-detector", 
+    filename="best_model_99.pth"              
+)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = load_model("C:\\Users\\panos\\CVision\\Logs\\best_model.pth", device)
+model = load_model(weight_path, device)
+
+st.title("🔍 Solar Panel Damage Detection")
 
 uploaded_file = st.file_uploader("Upload an image of a solar panel", type=["jpg", "jpeg", "png"])
 
