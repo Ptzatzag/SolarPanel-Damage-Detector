@@ -485,6 +485,10 @@ def train(model, dataset_train, dataset_val, device):
 
     optimizer = optim.AdamW(model.parameters(), lr=config.LEARNING_RATE, weight_decay=config.WEIGHT_DECAY)
     best_avg_val_loss = float('inf')
+    patience = 5
+    epochs_no_improve = 0
+    checkpoint_path = os.path.join(args.logs, f"best_model.pth")
+
 
     for epoch in range(num_epochs):
         model.train()
@@ -526,16 +530,22 @@ def train(model, dataset_train, dataset_val, device):
         # Save the best model 
         if avg_val_loss < best_avg_val_loss:
             best_avg_val_loss = avg_val_loss
-            checkpoint_path = os.path.join(args.logs, f"best_model_{epoch}.pth")
+            epochs_no_improve = 0
             torch.save(model.state_dict(), checkpoint_path)
-            # Log model to wandb
-            wandb.save(checkpoint_path)
-            print(f"Saved best model at epoch {epoch+1} with val loss: {avg_val_loss:.4f}")
-
-
+        else:
+            epochs_no_improve += 1
+        
+        # Add early stopping
+        if epochs_no_improve > patience:
+            print(f"Early stopping triggered after {patience} epochs with no improvement")
+            break
+        
         print(f"Epoch [{epoch+1}/{num_epochs}], Train Loss: {avg_train_loss:.4f}, Val Loss: {avg_val_loss:.4f}")    
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
+    
+    # Log model to wandb
+    wandb.save(checkpoint_path)
 
 
 def color_splash(image, mask):
