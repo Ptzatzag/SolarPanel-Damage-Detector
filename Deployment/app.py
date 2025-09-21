@@ -10,7 +10,7 @@ from huggingface_hub import hf_hub_download
 # Download weights from HF Hub
 weight_path = hf_hub_download(
     repo_id="Ptzatzag/solar-panel-detector", 
-    filename="best_model_99.pth"              
+    filename="best_model.pth"              
 )
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

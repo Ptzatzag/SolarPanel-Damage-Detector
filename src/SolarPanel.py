@@ -348,49 +348,59 @@ def calc_validation_loss(model, dataset_val, device):
 
 
 def evaluate(model, dataset_val, device, annotation_dir):
+    # print(f"Evaluate step | Allocated: {torch.cuda.memory_allocated()/1024**2:.2f} MB, "
+    #     f"Reserved: {torch.cuda.memory_reserved()/1024**2:.2f} MB")
+
     model.eval()
-    
     data_loader = DataLoader(dataset_val,
                             batch_size=1,
                             shuffle=False,
                             collate_fn=lambda x: tuple(zip(*x)))
-    
-    predictions = []  
-    
 
-    image_ids_val = sorted(dataset_val.image_ids) 
-    print("Validation image IDs: ", image_ids_val)
+    predictions = []
+
+
+    image_ids_val = sorted(dataset_val.image_ids) # Check the attributes name
+    #print("Validation image IDs: ", image_ids_val)
     with torch.no_grad():
-        for images, targets in data_loader:
+        for i, (images, targets) in enumerate(data_loader):
+     #       print(f"Processing image {i+1} of {len(data_loader)}")
             images = [img.to(device) for img in images]
             targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
-            
-            outputs = model(images) 
+            with torch.autocast(device_type='cuda', dtype=torch.float16):
+              outputs = model(images)
+            # Move outputs to CPU
+            outputs = [{k: v.cpu() for k, v in o.items()} for o in outputs]
 
+########### ADD AUTOCAST HERE
             # Process outputs and convert to COCO format
             for img_idx, output in enumerate(outputs):
-                
-                image_id = targets[img_idx]['image_id'].item() 
-                
+                image_id = targets[img_idx]['image_id'].item()
+
+
                 # Check if model predicted any instances
                 if len(output['boxes']) == 0:
-                    continue 
+                    continue
 
                 # Filter out predictions with low confidence scores (e.g., < 0.05 or 0.1)
-                score_threshold = 0.1 
+                # This helps in mAP calculation by reducing many low-quality FPs
+                score_threshold = 0.5 # You can tune this threshold
                 keep = output['scores'] > score_threshold
 
-                boxes = output['boxes'][keep].cpu().numpy()
-                labels = output['labels'][keep].cpu().numpy()
-                scores = output['scores'][keep].cpu().numpy()
-                masks = output['masks'][keep].cpu().numpy() 
-                
-                
+                boxes = output['boxes'][keep].numpy()
+                labels = output['labels'][keep].numpy()
+                scores = output['scores'][keep].numpy()
+                masks = output['masks'][keep].numpy()
+
+
+                # Post-process masks: Threshold and convert to binary (if not already)
+                # and ensure it's (N, H, W) binary mask if not already
                 # A common threshold for Mask R-CNN outputs is 0.5
-                masks = (masks > 0.5).astype(np.uint8) 
+                masks = (masks > 0.5).astype(np.uint8)
 
                 # Iterate through each detected instance
                 for j in range(len(boxes)):
+                    #print(f"every detected box: {boxes[j]}")
                     bbox = boxes[j]
                     label = labels[j]
                     score = scores[j]
@@ -403,15 +413,15 @@ def evaluate(model, dataset_val, device, annotation_dir):
                         float(bbox[2] - bbox[0]),
                         float(bbox[3] - bbox[1])
                     ]
-                    
+
                     #mask = (mask > 0.5).astype(np.uint8)
                     # Ensure mask is contiguous for RLE encoding
                     mask = np.asfortranarray(mask)
                     # Convert binary mask to RLE format
                     rle = pycoco_mask.encode(mask)
                     # Convert RLE counts to string for JSON serialization
-                    rle['counts'] = rle['counts'].decode('utf-8') 
-
+                    rle['counts'] = rle['counts'].decode('utf-8')
+                  #  print("CATEGORY ID: ", int(label))
                     predictions.append({
                         "image_id": image_id,
                         "category_id": int(label), # Ensure category_id is int
@@ -419,41 +429,47 @@ def evaluate(model, dataset_val, device, annotation_dir):
                         "score": float(score),
                         "segmentation": rle
                     })
-    
-    # --- COCO Evaluation ---
-    coco_gt = COCO(annotation_dir)
 
+    # --- COCO Evaluation ---
+    # Load ground truth annotations
+    coco_gt = COCO(annotation_dir)
     if not predictions:
         print("No predictions generated for evaluation. mAP will be 0.")
+        if torch.cuda.is_available():
+          torch.cuda.empty_cache()
         return 0.0, 0.0 # Return 0 for both bbox and mask mAP if no predictions
 
-    print("Predictions: ", predictions)
-    coco_dt = coco_gt.loadRes(predictions) 
+    coco_dt = coco_gt.loadRes(predictions)
 
     # --- Evaluate bounding box detections ---
+    # Redirect stdout to capture pycocotools print statements
     old_stdout = sys.stdout
     sys.stdout = io.StringIO()
 
     print("\n--- Evaluating Bounding Boxes ---")
     coco_eval_bbox = COCOeval(coco_gt, coco_dt, 'bbox')
     # Filter to only evaluate images that were actually in the validation dataset
-    coco_eval_bbox.params.imgIds = image_ids_val 
+    coco_eval_bbox.params.imgIds = image_ids_val
     coco_eval_bbox.evaluate()
     coco_eval_bbox.accumulate()
-    coco_eval_bbox.summarize()   #  final summary statistics 
-    mAP_bbox = coco_eval_bbox.stats[0] 
+    coco_eval_bbox.summarize()   #  final summary statistics
+    # Extract mAP (IoU=.50:.05:.95) for bounding boxes
+    mAP_bbox = coco_eval_bbox.stats[0]
 
     print("\n--- Evaluating Masks ---")
-    coco_eval_mask = COCOeval(coco_gt, coco_dt, 'segm') 
+    coco_eval_mask = COCOeval(coco_gt, coco_dt, 'segm') # Use 'segm' for mask evaluation
     coco_eval_mask.params.imgIds = image_ids_val
     coco_eval_mask.evaluate()
     coco_eval_mask.accumulate()
     coco_eval_mask.summarize()
-    mAP_mask = coco_eval_mask.stats[0] 
+    # Extract mAP (IoU=.50:.05:.95) for masks
+    mAP_mask = coco_eval_mask.stats[0]
 
+    # Restore stdout
     captured_output = sys.stdout.getvalue()
     sys.stdout = old_stdout
-    print(captured_output) 
+    #print(captured_output) # Print captured pycocotools output
+    torch.cuda.empty_cache()
 
     return mAP_bbox, mAP_mask
     
@@ -474,78 +490,139 @@ def get_lr(it):
     
     
 
-def train(model, dataset_train, dataset_val, device):
+def train(model, dataset_train, dataset_val, device, unfreeze_epoch):
     data_loader = DataLoader(dataset_train,
-                             batch_size=2,
+                             batch_size=1,
                              shuffle=True,
                              collate_fn=lambda x: tuple(zip(*x)))
-    
-    # for param in model.backbone.parameters():
-    #     param.requires_grad = False   # Freeze backbone, probably not because the detector has a specific task! 
+
+
+    for param in model.backbone.body.parameters():   # freeze only resnet body
+      param.requires_grad = False
+
+
+    for param in model.backbone.fpn.parameters():   # keep FPN trainable, better for performance
+        param.requires_grad = True
+
 
     optimizer = optim.AdamW(model.parameters(), lr=config.LEARNING_RATE, weight_decay=config.WEIGHT_DECAY)
+    #optimizer = optim.SGD(model.parameters(), lr=config.LEARNING_RATE)
+    #lr_scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=3, gamma=0.1)
+
     best_avg_val_loss = float('inf')
-    patience = 5
+    patience = 50
     epochs_no_improve = 0
     checkpoint_path = os.path.join(args.logs, f"best_model.pth")
+#################### NO IDEA ABOUT SCALER ####################
+    scaler = torch.amp.GradScaler('cuda')    # Gradient scaler, because we use low percision float16 and the grad could underflow
+#################### NO IDEA ABOUT SCALER ####################
 
-
+    accumulation_steps = 16  # effective batch size
     for epoch in range(num_epochs):
+        # print(f"Allocated: {torch.cuda.memory_allocated()/1024**2:.2f} MB, "
+        # f"Reserved: {torch.cuda.memory_reserved()/1024**2:.2f} MB")
+
+        if epoch == unfreeze_epoch:
+          print(f"Finetune, by unfreeze leyer 4 at epoch {epoch}")
+          # for param in model.backbone.parameters():
+          #     param.requires_grad = True
+          for name, param in model.backbone.named_parameters():
+            if "layer4" in name:
+              param.requires_grad = True
+        elif epoch == unfreeze_epoch + 50:
+          print(f"Activate Layer 3 at epoch {epoch}")
+          for name, param in model.backbone.named_parameters():
+            if "layer3" in name:
+              param.requires_grad = True
+        elif epoch == unfreeze_epoch + 70:
+          print(f"Activate Layer 2 at epoch {epoch}")
+          for name, param in model.backbone.named_parameters():
+            if "layer2" in name:
+              param.requires_grad = True
+        elif epoch == unfreeze_epoch + 90:
+          print(f"Active Layer 1 at epoch {epoch}")
+          for name, param in model.backbone.named_parameters():
+            param.requires_grad = True
+
         model.train()
         running_loss = 0.0
-        # loop through our batch 
-        for images, targets in data_loader:
+
+
+        # Run through our batch
+        for step, (images, targets) in enumerate(data_loader):
             images = [img.to(device) for img in images]
             targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
 
-            loss_dict = model(images, targets)
-            losses = sum(loss for loss in loss_dict.values())
+            # Use Automatic Mixed Precision (AMP) to reduce the overhead
+            with torch.autocast(device_type='cuda', dtype=torch.float16):
+              loss_dict = model(images, targets)
+              loss = sum(loss for loss in loss_dict.values())
+              loss = loss / accumulation_steps   # scale for accumulation
 
-            optimizer.zero_grad()
-            losses.backward()        
-            optimizer.step()
-            
-            running_loss += losses.item()
-        # Update the learning rate per epoch
-        for param_group in optimizer.param_groups: 
-            param_group['lr'] = get_lr(epoch)
-            
+            scaler.scale(loss).backward()   # scale the loss
+            #optimizer.zero_grad()
+            #losses.backward()
+            #optimizer.step()
+            if (step + 1) % (accumulation_steps) == 0:
+              scaler.step(optimizer)    # unscale the gradients before update
+              scaler.update()           # update the scale for the next iteration
+              optimizer.zero_grad()
+
+
+            running_loss += loss.item() * accumulation_steps
+
         avg_train_loss = running_loss / len(data_loader)
+        # Clean up memory
+        torch.cuda.empty_cache()
         avg_val_loss = calc_validation_loss(model, dataset_val, device)
-        mAP_bbox, mAP_mask = evaluate(model, dataset_val, device, ANNOTATION_JSON_PATH)
 
-        
+        # # Update the learning rate per epoch
+        for param_group in optimizer.param_groups:
+            param_group['lr'] = get_lr(epoch)
+
         current_lr = optimizer.param_groups[0]['lr']
-        
-        # log to wandb
-        wandb.log({
+
+        log_data = {
             'epoch': epoch+1,
             'train_loss': avg_train_loss,
             'val_loss': avg_val_loss,
             'learning_rate': current_lr,
-            'mAP_bbox': mAP_bbox,
-            'mAP_mask': mAP_mask
-        })
-        
-        # Save the best model 
+        }
+
+        # Evaluate 3rd epoch
+        if (epoch + 1) % 3 == 0:
+            mAP_bbox, mAP_mask = evaluate(model, dataset_val, device, ANNOTATION_JSON_PATH)
+            log_data['mAP_bbox'] = mAP_bbox
+            log_data['mAP_mask'] = mAP_mask
+
+        # Log everything for the current epoch in a single call
+        wandb.log(log_data)
+
+        # Save the best model
         if avg_val_loss < best_avg_val_loss:
-            best_avg_val_loss = avg_val_loss
-            epochs_no_improve = 0
-            torch.save(model.state_dict(), checkpoint_path)
+          best_avg_val_loss = avg_val_loss
+          epochs_no_improve = 0
+          torch.save(model.state_dict(), checkpoint_path)
+
+          # checkpoint_path = os.path.join(args.logs, f"best_model_{epoch}.pth")
+          # torch.save(model.state_dict(), checkpoint_path)
+          #wandb.save(checkpoint_path)
+          print(f"Saved best model at epoch {epoch+1} with val loss: {avg_val_loss:.4f}")
         else:
-            epochs_no_improve += 1
-        
+          epochs_no_improve += 1
+
         # Add early stopping
         if epochs_no_improve > patience:
             print(f"Early stopping triggered after {patience} epochs with no improvement")
             break
-        
-        print(f"Epoch [{epoch+1}/{num_epochs}], Train Loss: {avg_train_loss:.4f}, Val Loss: {avg_val_loss:.4f}")    
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
-    
+
+        print(f"Epoch [{epoch+1}/{num_epochs}], Train Loss: {avg_train_loss:.4f}, Val Loss: {avg_val_loss:.4f}")
+
+
     # Log model to wandb
-    wandb.save(checkpoint_path)
+    artifact = wandb.Artifact('model', type='model')
+    artifact.add_file(checkpoint_path)
+    wandb.log_artifact(artifact)
 
 
 def color_splash(image, mask):
