@@ -4,4 +4,5 @@ Data/
 external/
 Logs/
 notebooks/
-Examples/
+cvat/
+Tools/

@@ -7,26 +7,37 @@ from torchvision.models.detection import maskrcnn_resnet50_fpn
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from torchvision.models.detection.mask_rcnn import MaskRCNNPredictor
  
-def get_model(num_classes):
-    model = maskrcnn_resnet50_fpn(weights="DEFAULT")   # Here we load the weights
-    in_features = model.roi_heads.box_predictor.cls_score.in_features
-    model.roi_heads.box_predictor = FastRCNNPredictor(in_features, num_classes)
+# def get_model(num_classes):
+#     model = maskrcnn_resnet50_fpn(weights="DEFAULT")   # Here we load the weights
+#     in_features = model.roi_heads.box_predictor.cls_score.in_features
+#     model.roi_heads.box_predictor = FastRCNNPredictor(in_features, num_classes)
 
-    in_features_mask = model.roi_heads.mask_predictor.conv5_mask.in_channels
-    hidden_layer = 256
-    model.roi_heads.mask_predictor = MaskRCNNPredictor(in_features_mask, hidden_layer, num_classes)
-    return model
+#     in_features_mask = model.roi_heads.mask_predictor.conv5_mask.in_channels
+#     hidden_layer = 256
+#     model.roi_heads.mask_predictor = MaskRCNNPredictor(in_features_mask, hidden_layer, num_classes)
+#     return model
 
 def load_model(model_path, device):
-    num_classes = 1 + 1  # background + 1 solar damage classes
-    model = maskrcnn_resnet50_fpn(weights="DEFAULT")   # Here we load the weights
+    num_classes = 1 + 2  # background + 1 solar damage classes
+    model = maskrcnn_resnet50_fpn(weights=None)   # Here we load the weights
+    
+    model.roi_heads.detections_per_img = 20 
     in_features = model.roi_heads.box_predictor.cls_score.in_features
     model.roi_heads.box_predictor = FastRCNNPredictor(in_features, num_classes)
 
     in_features_mask = model.roi_heads.mask_predictor.conv5_mask.in_channels
     hidden_layer = 256
     model.roi_heads.mask_predictor = MaskRCNNPredictor(in_features_mask, hidden_layer, num_classes)
-    model.load_state_dict(torch.load(model_path, map_location=device))
+
+    # model.load_state_dict(torch.load(model_path, map_location=device))
+    checkpoint = torch.load(model_path, map_location=device)
+    # Remove heads from the checkpoint before loading
+    # filtered_state_dict = {k: v for k, v in checkpoint.items()
+    #                     if not ("box_predictor" in k or "mask_predictor" in k)}
+    # model.load_state_dict(filtered_state_dict, strict=False)
+    
+    model.load_state_dict(checkpoint)
+    
     model.to(device)
     model.eval()
     return model
