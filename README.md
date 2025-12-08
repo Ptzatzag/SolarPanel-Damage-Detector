@@ -1,4 +1,4 @@
-## ☀️Solar Panel Damage Detector
+## Solar Panel Damage Detector
 This project leverages **PyTorch** and **Mask R-CNN** to automatically detect damages on solar panels using image segmentation techniques. A **Streamlit** app is also included to provide an intuitive interface for demo and deployment.
 ## 📁Project Structure
 ```
