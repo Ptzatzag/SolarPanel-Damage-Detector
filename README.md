@@ -38,5 +38,9 @@ cd Deployment
 streamlit run app.py
 ```
 
+## Example Output
+![image](/Examples/CleanExample.PNG)
+![image](/Examples/SnowExample.PNG)
+
 ## 📝License 
 This project is licensed under the MIT License. See the LICENSE file for details.  
