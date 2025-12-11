@@ -1,7 +1,3 @@
-##### ToDo: - class names and masks should appear on the bbox 
-
-########## INFARENCE SHOULD INCLUDE BOTH CATEGORIES ##########
-
 import streamlit as st
 from PIL import Image, ImageDraw, ImageFont
 import torch
