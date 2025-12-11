@@ -18,7 +18,7 @@ SolarPanel-Damage-Detector/
 - Custom dataset loading and preprocessing
 - Evaluation metrics and visualization tools
 - Streamlit interface for real-time inference
-- Open-source
+- Open source
 
 ## ⚙️Instalation
 ```
@@ -37,6 +37,14 @@ To run the Streamlit app:
 cd Deployment
 streamlit run app.py
 ```
+## 🐳Docker Deployment
+```
+# Create the docker image
+docker build -t solar-panel-damage-detector .
+# Run the container
+docker run -d -p 8501:8501 solar-panel-damage-detector:latest
+```
+
 
 ## Example Output
 ![image](/Examples/CleanExample.PNG)
