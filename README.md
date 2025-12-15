@@ -6,6 +6,7 @@ SolarPanel-Damage-Detector/
 │
 ├── Deployment/        # Streamlit app and deployment related scripts
 ├── Examples/          # Inference examples
+├── Dockerfile/        # Container definition for the app
 ├── src/               # Source code including model training, utils, and inference logic
 ├── README.md          # Project overview and usage instructions
 ├── LICENSE            # MIT License
