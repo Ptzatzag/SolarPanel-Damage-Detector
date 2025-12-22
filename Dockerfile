@@ -11,4 +11,4 @@ COPY . .
 EXPOSE 8501
 
 # Set the default command to run the Streamlit app
-CMD ["streamlit", "run", "/app/Deployment/app.py", "--server.port=8501", "--server.address=0.0.0.0"]
+CMD ["streamlit", "run", "/demo/Deployment/demo.py", "--server.port=8501", "--server.address=0.0.0.0"]
