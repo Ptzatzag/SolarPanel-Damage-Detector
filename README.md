@@ -4,7 +4,7 @@ This project leverages **PyTorch** and **Mask R-CNN** to automatically detect da
 ```
 SolarPanel-Damage-Detector/
 │
-├── Deployment/        # Streamlit app and deployment related scripts
+├── Deployment/        # Streamlit demo and deployment related scripts
 ├── Examples/          # Inference examples
 ├── Dockerfile/        # Container definition for the app
 ├── src/               # Source code including model training, utils, and inference logic
@@ -36,7 +36,7 @@ Model training is handled using PyTorch and Mask R-CNN. Detailed steps and resul
 To run the Streamlit app:
 ```
 cd Deployment
-streamlit run app.py
+streamlit run demo.py
 ```
 ## 🐳Docker Deployment
 ```
