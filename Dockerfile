@@ -1,6 +1,6 @@
 FROM python:3.7.16
 # Set working directory in the container
-WORKDIR /app
+WORKDIR /demo
 # Copy requirements first (for caching)
 COPY Deployment/requirements.txt .
 # Install Python dependenes
