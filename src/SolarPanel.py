@@ -1,8 +1,3 @@
-## ToDo
-# trim the code with config
-# change the splas functions 
-##
-
 import torch 
 import numpy as np
 import json
@@ -39,7 +34,7 @@ import json
 import io
 
 
-class_names = ['Clean', 'Dust', 'Physical Damage', 'Electrical Damage', 'Bird Drop', 'Snow', ]      
+class_names = ['Clean', 'Snow']#,'Dust', 'Physical Damage', 'Electrical Damage', 'Bird Drop', ]      
 IMAGE_DATA_DIR = 'c:/Users/panos/CVision/Data'
 ANNOTATION_JSON_PATH = 'c:/Users/panos/CVision/Data/via_project_10Jul2025_15h51m_json.json'
 
@@ -50,7 +45,7 @@ class SolarDataset(Dataset):
                  dataset_dir: str,
                  annotation_dir: str,
                  transforms: Optional[Callable]=None,
-                 mode: str = "train",
+                 mode: str="train",
                  val_size: float = 0.2) -> None:
         self.dataset_dir = dataset_dir
         self.transforms = transforms
@@ -58,17 +53,15 @@ class SolarDataset(Dataset):
         with open(annotation_dir) as f:
             annotation_dict = json.load(f)
 
-        # Extract information from COCO dict
         self.annotation_info = [img for img in annotation_dict.get("annotations")]   # keys: ['id', 'image_id', 'category_id', 'segmentation', 'area', 'bbox', 'iscrowd', 'attributes']
-        
-        # The following inclues only one annotation per image
-        # Lookup table of all annotations of each image, with keys: image_id and values: dict{annotations}
+
+        # Build a map of image_id to image_info for efficient lookup
         self.image_id_to_info = {img['id']: img for img in annotation_dict.get("images")}
 
 
-        # This should be the right one  
         self.map_imgID_to_annotations = {}
         for ann_info in self.annotation_info:
+            # print(idx, ann_info)
             key = ann_info.get('image_id')
             if key in self.map_imgID_to_annotations:
                 self.map_imgID_to_annotations[key].append(ann_info)
@@ -110,7 +103,7 @@ class SolarDataset(Dataset):
 
         # Process annotations for this image
         annotations = self.map_imgID_to_annotations.get(image_id, [])
-       ############################################################## 
+       ##############################################################
 ####### Run though annotations and get the boxes and masks for each key
         masks = []
         boxes = []
@@ -126,14 +119,9 @@ class SolarDataset(Dataset):
             # Skip invalid boxes
             if w <= 0 or h <= 0:
                 continue
-                
+
             x_max = x_min + w
             y_max = y_min + h
-
-            # if w > 0 and h > 0:  # filter invalid boxes
-            #     boxes_xyxy.append([x_min, y_min, x_max, y_max])
-            # else:
-            #     continue  # skip invalid
 
 
             # Clamp coordinates to image boundaries
@@ -141,7 +129,7 @@ class SolarDataset(Dataset):
             y_min = max(0, min(y_min, height - 1))
             x_max = max(x_min + 1, min(x_max, width))
             y_max = max(y_min + 1, min(y_max, height))
-            
+
             boxes_xyxy.append([x_min, y_min, x_max, y_max])
 
             rle_mask = ann['segmentation']
@@ -162,12 +150,9 @@ class SolarDataset(Dataset):
 
         # Convert to tensors
         boxes_tensor = torch.tensor(boxes_xyxy, dtype=torch.float32) if boxes_xyxy else torch.empty((0, 4), dtype=torch.float32)
-        #boxes_tensor = torch.tensor(boxes, dtype=torch.float32) if boxes else torch.empty((0, 4), dtype=torch.float32)
         labels_tensor = torch.tensor(labels, dtype=torch.int64) if labels else torch.empty((0,), dtype=torch.int64)
         masks_tensor = torch.stack([torch.from_numpy(m).to(torch.uint8) for m in masks]) if masks else torch.empty((0, height, width), dtype=torch.uint8)
         iscrowd_tensor = torch.tensor(iscrowd_flags, dtype=torch.int64) if iscrowd_flags else torch.empty((0,), dtype=torch.int64)
-        # Calculate area for COCO (bbox = [x, y, w, h])
-       # area_tensor = boxes_tensor[:, 2] * boxes_tensor[:, 3] if boxes_tensor.numel() > 0 else torch.tensor([], dtype=torch.float32)
 
         # Correct area calculation (now in xyxy format)
         if boxes_tensor.numel() > 0:
@@ -180,9 +165,9 @@ class SolarDataset(Dataset):
             "boxes": boxes_tensor,
             "labels": labels_tensor,
             "masks": masks_tensor,
-            "image_id": torch.tensor([image_id]),
+            "image_id": torch.tensor(image_id),   # ([image_id])
             "area": area_tensor,
-            "iscrowd": iscrowd_tensor#self.annot_ids[idx].get("iscrowd")
+            "iscrowd": iscrowd_tensor
         }
 
         if self.transforms:
@@ -213,67 +198,126 @@ class SolarDataset(Dataset):
         else:
           # If no transforms, manually convert image to tensor (C, H, W) and normalize
           image = torch.from_numpy(image).permute(2, 0, 1).float() / 255.0
+
         return image, target
 
 
+    # def _resolve_image_path(self, info):
+    #   if dataset['categories'] == "clean":
 
-        ##########################################
-        ########## TRANSFORMATIONS HERE ##########
-        ##########################################
-
-
-        # image = torch.from_numpy(image).permute(2,0,1).float() / 255.0   # understand this
-        # return image, target
+    #   if class_names == "clean":
+    #     category = info.get("file_name", "").split("")[0]     # We split with "_" as a delimeter only for the thermal dataset
+    #   else:
+    #     category = info.get("file_name", "").split("")[0]
+    #   return os.path.join(self.dataset_dir, category, info.get("file_name", ""))
 
     def _resolve_image_path(self, info):
-        category = info.get("file_name", "").split()[0]
-        return os.path.join(self.dataset_dir, category, info.get("file_name", ""))
+      category = info.get("file_name", "").split()[0]
+      return os.path.join(self.dataset_dir, category, info.get("file_name", ""))
 
     @staticmethod
     def _get_albumentations_transforms(train):
         IMAGENET_MEAN = [0.485, 0.456, 0.406]
         IMAGENET_STD = [0.229, 0.224, 0.225]
 
-        if train:
-            return A.Compose([
-                A.HorizontalFlip(p=0.5),
-                A.RandomBrightnessContrast(p=0.2),
-                A.Rotate(limit=15, p=0.5),
-                # add more transformations 
-                A.VerticalFlip(p=0.3),
-                A.GaussNoise(var_limit=(10.0, 50.0), p=0.3),
-                A.RandomSunFlare(flare_roi=(0, 0, 1, 0.5), src_radius=400, p=0.1),  # Sun glare
-                A.RandomShadow(shadow_roi=(0, 0.5, 1, 1), p=0.2),  # Shadows
-                A.CoarseDropout(
-                              max_holes=8,
-                              hole_height_range=(0.05, 0.2),  # fraction of image height
-                              hole_width_range=(0.05, 0.2),   # fraction of image width
-                              p=0.2
-                          ),  # Simulate dirt spots
+        bbox_params_config = A.BboxParams(
+        format='pascal_voc',
+        label_fields=['labels'],
+        min_area=0.0,
+        min_visibility=0.0)
 
-                # Normalize using ImageNet's mean and std
+        if train:
+          return A.Compose(
+            [
+                #A.Resize(height=800, width=800),   # Resize the image to lower the overhead
+                A.HorizontalFlip(p=0.5),
+                A.Affine(scale=(0.8, 1.2), translate_percent=(0.1, 0.1), rotate=(-15, 15), p=0.5),
+                A.VerticalFlip(p=0.3), # Added this as it was in your snippet
+                A.RandomBrightnessContrast(p=0.2),
+        ####### Update the following transformations #######
+                # --- Geometric Transformations ---
+                #A.Rotate(limit=30, p=0.5), # Increased rotation limit
+                # A.ShiftScaleRotate(
+                #     shift_limit=0.0625, scale_limit=0.1, rotate_limit=0, p=0.3
+                # ), # Minor shifts and zooms
+                #A.ElasticTransform(p=0.1, alpha=120, sigma=120 * 0.05, alpha_affine=120 * 0.03), # Distortions
+
+                # --- Noise and Occlusions (important for robustness) ---
+                #A.GaussNoise(var_limit=(10, 50), p=0.2), # Add Gaussian noise
+
+                # Normalize image pixels using ImageNet's mean and std
                 A.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD, max_pixel_value=255.0),
-                # ToTensorV2 should generally be the last step,
-                # converting NumPy arrays to PyTorch tensors and permuting dimensions (H, W, C) -> (C, H, W)
+                # Converts image and masks to PyTorch tensors, and changes image format from HWC to CHW
                 ToTensorV2()
-            ], bbox_params=A.BboxParams(
-                format='pascal_voc', # Ensure this matches your [xmin, ymin, xmax, ymax] format
-                label_fields=['labels']
-            )
-           #mask_params=A.MaskParams() # <-- IMPORTANT: Uncomment and enable this for mask transformations
-           )
+            ], bbox_params=bbox_params_config)
         else:
             # For validation/inference, typically only normalization and tensor conversion are needed
             return A.Compose([
+                #A.Resize(height=800, width=800),   # Resize the image to lower the overhead
                 A.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD, max_pixel_value=255.0),
                 ToTensorV2()
-            ], bbox_params=A.BboxParams(
-                format='pascal_voc', 
-                label_fields=['labels']
-            ),
-            #mask_params=A.MaskParams() # Also needed for validation if masks are part of output
-            )
-   
+                ],
+                bbox_params=bbox_params_config)
+    # @ staticmethod
+    # def _get_albumentations_transforms(train):
+    #   IMAGENET_MEAN = [0.485, 0.456, 0.406]
+    #   IMAGENET_STD = [0.229, 0.224, 0.225]
+
+    #   # Bbox parameters should be defined once
+    #   bbox_params_config = A.BboxParams(
+    #       format='pascal_voc',
+    #       label_fields=['labels'],
+    #       min_area=1.0, # It's good practice to have a small min_area
+    #       min_visibility=0.1 # And a minimum visibility
+    #   )
+
+    #   if train:
+    #       return A.Compose([
+    #           # --- BASE GEOMETRIC TRANSFORMS ---
+    #           A.HorizontalFlip(p=0.5),
+    #           # Affine combines scaling, translation, and rotation in one efficient operation
+    #           A.Affine(
+    #               scale=(0.8, 1.2),          # Zooms in or out by 20%
+    #               translate_percent=(-0.1, 0.1), # Shifts image by up to 10%
+    #               rotate=(-20, 20),          # Rotates by up to 20 degrees
+    #               shear=(-10, 10),           # Shears by up to 10 degrees
+    #               p=0.7
+    #           ),
+
+    #           # --- ROBUSTNESS TRANSFORMS (Highly Recommended) ---
+    #           # Randomly remove parts of the image to handle occlusion
+    #           A.CoarseDropout(max_holes=8, max_height=32, max_width=32, fill_value=0, p=0.5),
+    #           # Distort the image non-rigidly
+    #           A.ElasticTransform(p=0.3, alpha=120, sigma=120 * 0.05, alpha_affine=120 * 0.03),
+
+    #           # --- COLOR & QUALITY TRANSFORMS ---
+    #           # More powerful color jittering
+    #           A.HueSaturationValue(hue_shift_limit=20, sat_shift_limit=30, val_shift_limit=20, p=0.5),
+    #           A.RandomBrightnessContrast(brightness_limit=0.2, contrast_limit=0.2, p=0.5),
+    #           # Add blur to simulate out-of-focus images
+    #           A.OneOf([
+    #               A.GaussianBlur(p=1.0),
+    #               A.MotionBlur(p=1.0),
+    #           ], p=0.2),
+    #           # Add noise to simulate sensor imperfections
+    #           A.GaussNoise(var_limit=(10.0, 50.0), p=0.2),
+
+    #           # --- FINAL STEPS ---
+    #           A.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
+    #           ToTensorV2()
+    #       ], bbox_params=bbox_params_config)
+    #   else:
+    #       # Validation/inference should be minimal: just normalize and convert to tensor
+    #       return A.Compose([
+    #           A.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
+    #           ToTensorV2()
+    #       ], bbox_params=bbox_params_config)
+
+
+IMAGE_DATA_DIR = '/content/drive/MyDrive/CVision/Data'
+ANNOTATION_JSON_PATH = '/content/drive/MyDrive/CVision/Data/SnowCOCO.json'
+#ANNOTATION_JSON_PATH = '/content/drive/MyDrive/CVision/Data/Clean_192.json'
+#ANNOTATION_JSON_PATH = '/content/drive/MyDrive/CVision/Data/snow_annotations.json'
 
 class SolarConfig():
     """Configuration for training on MS COCO.
@@ -291,21 +335,20 @@ class SolarConfig():
     # GPU_COUNT = 8
 
     # Number of classes (including background)
-    NUM_CLASSES = 1 + 6  # Background + Solar Panel Damage Categories
+    NUM_CLASSES = 1 + 2  # Background + Solar Panel Damage Categories
 
     # Numbe of training steps pre epoch
-    STEPS_PER_EPOCH = 10
+    ##STEPS_PER_EPOCH = 10
 
     # Skip detection with < 90% confidence
-    DETECTION_MIN_CONFIDENCE = 0.9
+   ## DETECTION_MIN_CONFIDENCE = 0.9
 
 
     USE_MINI_MASK = False
-    
+
     LEARNING_RATE = 0.001
-    LEARNING_MOMENTUM = 0.9
-    WEIGHT_DECAY = 0.0001
-    
+    WEIGHT_DECAY = 0.0001   # init value 0.0001, we increased it to avoid overfitting
+
     def display(self):
         """Display Configuration values."""
         print("\nConfigurations:")
@@ -316,40 +359,65 @@ class SolarConfig():
         #         print("{:30} {}".format(a, getattr(self, a)))
         print("\n")
         
+        
+### MOVE THIS TO CONFIG ###
+max_lr = 4e-5   # lower the lr, we see a burst of loss when we unfreeze the model
+min_lr = max_lr * 0.1
+warmup_steps = 10
+num_epochs = 200
+        
 def get_model(num_classes):
-    model = maskrcnn_resnet50_fpn(weights="DEFAULT")   # Here we load the weights
+    model = maskrcnn_resnet50_fpn(weights=None)   # Here we load the weights
+    # backbone = resnet_fpn_backbone('resnet101', pretrained=True)
+    # model = MaskRCNN(backbone, num_classes=num_classes)
+
     in_features = model.roi_heads.box_predictor.cls_score.in_features
     model.roi_heads.box_predictor = FastRCNNPredictor(in_features, num_classes)
+
+    model.roi_heads.detections_per_img = 20  # default is 100, use this on bigger datasets to lower the overhead
 
     in_features_mask = model.roi_heads.mask_predictor.conv5_mask.in_channels
     hidden_layer = 256
     model.roi_heads.mask_predictor = MaskRCNNPredictor(in_features_mask, hidden_layer, num_classes)
     return model
-    
+
 def calc_validation_loss(model, dataset_val, device):
-    model.train()
+    model.train()   # Mask RCNN returns list of detections in the eval mode, we need loss dict
+
+    # Hack for simulating eval mode, by switching Batch norm and dropout layers to eval mode
+    for module in model.modules():
+      if isinstance(module, torch.nn.modules.BatchNorm2d):
+        module.eval()
+      if isinstance(module, torch.nn.modules.Dropout):
+        module.eval()
+
     data_loader = DataLoader(dataset_val,
                              batch_size=1,
                              shuffle=False,
                              collate_fn=lambda x: tuple(zip(*x)))
     val_loss = 0.0
-    with torch.no_grad():
-        for images, targets in data_loader:
-            images = [img.to(device) for img in images]
-            targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
-
+    # with torch.no_grad():   # issues with no tracking the gradient while being on train mode
+    with torch.set_grad_enabled(False):
+      for images, targets in data_loader:
+          images = [img.to(device) for img in images]
+          targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
+          #########
+          with torch.autocast(device_type='cuda', dtype=torch.float16):
             loss_dict = model(images, targets)
+            # print(loss_dict)
             losses = sum(loss for loss in loss_dict.values())
-            val_loss += losses.item()
+          #print(f"loss in the eval: {losses.item()}")
+          val_loss += losses.item()
+      # cleanup to avoid memory accumulation
+      del loss_dict, losses, images, targets
+      torch.cuda.empty_cache()
 
     avg_val_loss = val_loss / len(data_loader)
     return avg_val_loss
 
-
-
 def evaluate(model, dataset_val, device, annotation_dir):
-    # print(f"Evaluate step | Allocated: {torch.cuda.memory_allocated()/1024**2:.2f} MB, "
-    #     f"Reserved: {torch.cuda.memory_reserved()/1024**2:.2f} MB")
+    print(f"Evaluate step | Allocated: {torch.cuda.memory_allocated()/1024**2:.2f} MB, "
+        f"Reserved: {torch.cuda.memory_reserved()/1024**2:.2f} MB")
 
     model.eval()
     data_loader = DataLoader(dataset_val,
@@ -473,26 +541,26 @@ def evaluate(model, dataset_val, device, annotation_dir):
 
     return mAP_bbox, mAP_mask
     
-
-max_lr = 6e-3 
-min_lr = max_lr * 0.1
-warmup_steps = 10    
-num_epochs = 30 
  
 def get_lr(it):
+        # 1) linear warmup for warmup_iters steps
         if it < warmup_steps:
             return max_lr * (it+1) / (warmup_steps+1)
-        # Clamp decay_ratio to [0, 1] 
+        # 2) in between, use cosine decay down to min learning rate
+        # Clamp decay_ratio to [0, 1] to prevent assertion errors in case of misaligned inputs
         decay_ratio = min(1.0, max(0.0, (it - warmup_steps) / (num_epochs - warmup_steps)))
-        assert 0 <= decay_ratio <= 1 
+        assert 0 <= decay_ratio <= 1
         coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio))   # coeff starts at 1 and goes to 0
         return min_lr + coeff * (max_lr - min_lr)
+
     
     
 
-def train(model, dataset_train, dataset_val, device, unfreeze_epoch):
+def train(model, dataset_train, dataset_val, device, activate_l4, activate_l3, activate_l2):
+
+  ############# Every 50 epochs make a prediction #############
     data_loader = DataLoader(dataset_train,
-                             batch_size=1,
+                             batch_size=3,
                              shuffle=True,
                              collate_fn=lambda x: tuple(zip(*x)))
 
@@ -506,13 +574,11 @@ def train(model, dataset_train, dataset_val, device, unfreeze_epoch):
 
 
     optimizer = optim.AdamW(model.parameters(), lr=config.LEARNING_RATE, weight_decay=config.WEIGHT_DECAY)
-    #optimizer = optim.SGD(model.parameters(), lr=config.LEARNING_RATE)
-    #lr_scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=3, gamma=0.1)
 
     best_avg_val_loss = float('inf')
-    patience = 50
+    patience = 20
     epochs_no_improve = 0
-    checkpoint_path = os.path.join(args.logs, f"best_model.pth")
+    checkpoint_path = os.path.join(args.logs, f"Best_Model_Clean_CC.pth")
 #################### NO IDEA ABOUT SCALER ####################
     scaler = torch.amp.GradScaler('cuda')    # Gradient scaler, because we use low percision float16 and the grad could underflow
 #################### NO IDEA ABOUT SCALER ####################
@@ -522,27 +588,28 @@ def train(model, dataset_train, dataset_val, device, unfreeze_epoch):
         # print(f"Allocated: {torch.cuda.memory_allocated()/1024**2:.2f} MB, "
         # f"Reserved: {torch.cuda.memory_reserved()/1024**2:.2f} MB")
 
-        if epoch == unfreeze_epoch:
-          print(f"Finetune, by unfreeze leyer 4 at epoch {epoch}")
+        if epoch == activate_l4:
+          print(f"Finetune, activate backbone at epoch {epoch}")
           # for param in model.backbone.parameters():
           #     param.requires_grad = True
           for name, param in model.backbone.named_parameters():
             if "layer4" in name:
               param.requires_grad = True
-        elif epoch == unfreeze_epoch + 50:
+        if epoch == activate_l3:
           print(f"Activate Layer 3 at epoch {epoch}")
           for name, param in model.backbone.named_parameters():
             if "layer3" in name:
               param.requires_grad = True
-        elif epoch == unfreeze_epoch + 70:
+        if epoch == activate_l2:
           print(f"Activate Layer 2 at epoch {epoch}")
           for name, param in model.backbone.named_parameters():
-            if "layer2" in name:
+            if "layer2" in name: #or "layer1" in name:
               param.requires_grad = True
-        elif epoch == unfreeze_epoch + 90:
-          print(f"Active Layer 1 at epoch {epoch}")
-          for name, param in model.backbone.named_parameters():
-            param.requires_grad = True
+        # if epoch == activate_l1:   # epoch num 250, and full backbone activation with remaining 10 epochs
+        #   print(f"Active Layer 1 at epoch {epoch}")
+        #   for name, param in model.backbone.named_parameters():
+        #       if "layer1" in name:
+        #         param.requires_grad = True
 
         model.train()
         running_loss = 0.0
@@ -623,8 +690,8 @@ def train(model, dataset_train, dataset_val, device, unfreeze_epoch):
     artifact = wandb.Artifact('model', type='model')
     artifact.add_file(checkpoint_path)
     wandb.log_artifact(artifact)
-
-
+    
+    
 def color_splash(image, mask):
     # If no masks detected, return grayscale image
     if mask.size == 0:
@@ -639,16 +706,18 @@ def color_splash(image, mask):
     return splash
 
 
-def draw_boxes_on_splash(splash_image, output, threshold=0.8, class_names=None):
+def draw_boxes_on_splash(splash_image, output, threshold=0.7, class_names=class_names):
+    #########
     keep = output['scores'] > threshold
     boxes = output['boxes'][keep].cpu().numpy()
     labels = output['labels'][keep].cpu().numpy()
     scores = output['scores'][keep].cpu().numpy()
 
+
     image_draw = splash_image.copy()
 
     for box, label, score in zip(boxes, labels, scores):
-        x1, y1, x2, y2 = box.astype(int)            
+        x1, y1, x2, y2 = box.astype(int)
         label_text = f"{class_names[label] if class_names else label}: {score:.2f}"
         cv2.rectangle(image_draw, (x1, y1), (x2, y2), color=(0, 0, 255), thickness=2)
         cv2.putText(image_draw, label_text, (x1, y1 - 10),
@@ -656,7 +725,7 @@ def draw_boxes_on_splash(splash_image, output, threshold=0.8, class_names=None):
 
     return image_draw
 
-def detect_and_color_splash_pytorch(model, image_path, device, threshold=0.8):
+def detect_and_color_splash_pytorch(model, image_path, device, threshold=0.7):
     model.eval()
     image = Image.open(image_path).convert("RGB")
 
@@ -675,27 +744,42 @@ def detect_and_color_splash_pytorch(model, image_path, device, threshold=0.8):
     print(f"Detections: {len(output['scores'])}, Above threshold: {keep.sum().item()}")
     # Create color splash
     splash = color_splash(image_np, masks.cpu().numpy())
-    final_image = draw_boxes_on_splash(splash, output, threshold, class_names=class_names)
+    final_image = draw_boxes_on_splash(splash, output, threshold, class_names)
 
     file_name = "/content/drive/MyDrive/CVision/splash_with_boxes_{:%Y%m%dT%H%M%S}.png".format(datetime.datetime.now())
     cv2.imwrite(file_name, cv2.cvtColor(final_image, cv2.COLOR_RGB2BGR))
     print("Saved with boxes and splash:", file_name)
 
-sys.argv = ['script.py', '--weights', 'C:/Users/panos/CVision/external/Mask_RCNN/mask_rcnn_coco.h5']
-
-
 device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-num_classes = 1 + 6  # background + 6 solar damage classes
+num_classes = 1 + 2  # background + 6 solar damage classes
 model = get_model(num_classes)
+
+# Load the best models weights, for the second cycle
+checkpoint = torch.load("/content/drive/MyDrive/CVision/Logs/best_model.pth", map_location=device)
+model.load_state_dict(checkpoint)
+# # Remove heads from the checkpoint before loading
+# filtered_state_dict = {k: v for k, v in checkpoint.items()
+#                        if not ("box_predictor" in k or "mask_predictor" in k)}
+# model.load_state_dict(filtered_state_dict, strict=False)
+
 model.to(device)
 
+
+num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+print(f"Trainable parameters: {num_params}")
+
+param_size = sum(p.numel() * p.element_size() for p in model.parameters())
+buffer_size = sum(b.numel() * b.element_size() for b in model.buffers())
+model_size_bytes = param_size + buffer_size
+
+print(f"Model size: {model_size_bytes / 1024**3:.2f} GB")
 
 # Parse command line arguments
 parser = argparse.ArgumentParser(
 description='Train Mask R-CNN to detect Solar Panels Damages'
 )
 
-parser.add_argument('--mode',   # convert it to a positional argument in the .py file 
+parser.add_argument('--mode',   # convert it to a positional argument in the .py file
                     help='train or inference',
                     required=False,
                     default='train'
@@ -707,26 +791,27 @@ parser.add_argument('--dataset',
                     help='Root directory of our dataset',
                     default=IMAGE_DATA_DIR
                     )
-### THE FOLLOWING IS SHOULD BE COMMEND OUT ###  
+### THE FOLLOWING IS SHOULD BE COMMEND OUT ###
 parser.add_argument('--weights',
                     required=False,
                     help='Path to weights .pth file or "coco" ',
-                    default=''
+                    default='/content/drive/MyDrive/CVision/Logs/best_model_25.pth'
                     )
 
 parser.add_argument('--logs',
                     required=False,
                     metavar=r'C:\Users\panos\CVision\Logs',
                     help='Path to logs and checkpoints',
-                    default='C:/Users/panos/CVision/Logs'
+                    default='/content/drive/MyDrive/CVision/Logs'
                     )
 
 parser.add_argument('--image', required=False,
                         metavar="path or URL to image",
-                        help='Image to apply the color splash effect on')
+                        help='Image to apply the color splash effect on',
+                        default='/content/drive/MyDrive/CVision/Data/Physical/Physical (64).jpg'
+                    )
 
-args = parser.parse_args()   # parser.parse_args(['--dataset', 'pass the path that the dataset is located']), alternative way to preset the value of the argument or we could use default 
-
+args = parser.parse_args()   # parser.parse_args(['--dataset', 'pass the path that the dataset is located']), alternative way to preset the value of the argument or we could use default
 
 
 # Validate arguments
@@ -740,7 +825,6 @@ print("Weights: ", args.weights)
 print("Dataset: ", args.dataset)
 print("Logs: ", args.logs)
 
-
 # Configurations
 if args.mode == "train":
     config = SolarConfig()
@@ -751,12 +835,12 @@ if args.mode == "train":
     dataset_val = SolarDataset(dataset_dir=IMAGE_DATA_DIR, annotation_dir=ANNOTATION_JSON_PATH, transforms=SolarDataset._get_albumentations_transforms(train=False), mode="val", val_size=0.2)
 
     wandb.init(project='SolarPanel-Damage-Detector',
-                name=f"run_{time.strftime('%Y%m%d-%H%M%S')}",
+                name=f"Snow_FixLoading",
                 )
     wandb.watch(model, log="gradients", log_freq=30)
 
-    train(model, dataset_train, dataset_val, device)
-
+    # train(model, dataset_train, dataset_val, device, activate_backbone=30)
+    train(model, dataset_train, dataset_val, device, activate_l4=60, activate_l3=100, activate_l2=150)
 else:
     assert args.image, "Provide --image"
 
