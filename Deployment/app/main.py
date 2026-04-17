@@ -16,14 +16,14 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = load_model(weight_path, device)
 
 
-app = FastAPI(title="Snow Detection")
+app = FastAPI(title="Solar Panel Damage Detection")
 
 @app.get('/')
 def health_check():
     return {'status': 'ok'}
 
 @app.post('/predict')
-async def predict_snow(file: UploadFile = File(...)):
+async def predict_damage(file: UploadFile = File(...)):
     image_bytes = await file.read()
     image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
     
