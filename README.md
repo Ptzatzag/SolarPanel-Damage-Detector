@@ -4,13 +4,21 @@ This project leverages **PyTorch** and **Mask R-CNN** to automatically detect da
 ```
 SolarPanel-Damage-Detector/
 │
-├── Deployment/        # Streamlit demo and deployment related scripts
-├── Examples/          # Inference examples
-├── Dockerfile/        # Container definition for the app
-├── src/               # Source code including model training, utils, and inference logic
-├── README.md          # Project overview and usage instructions
-├── LICENSE            # MIT License
-└── .gitignore         # Files and folders to ignore in Git
+├── Deployment/       # Streamlit frontend and deployment scripts
+├── Examples/         # Example inputs and inference demos
+├── configs/          # Configuration files
+├── dataset/          # Dataset handling and loading
+├── evaluate/         # Evaluation scripts
+├── model/            # Model architecture and definitions
+├── train/            # Training pipeline
+├── utils/            # Utility functions
+├── src/              # Additional core source code
+│
+├── Dockerfile        # Container configuration
+├── requirements.txt  # Python dependencies
+├── README.md         # Project documentation
+├── LICENSE           # MIT License
+└── .gitignore        # Ignored files
 
 ```
 
