@@ -8,5 +8,4 @@ cvat/
 Tools/
 HF_Token/
 src/Solar_Panel.py
-Deployment/utils.py
 Deployment/demo.py
