@@ -1,5 +1,7 @@
 ## Solar Panel Damage Detector
-This project leverages **PyTorch** and **Mask R-CNN** to automatically detect damages on solar panels using image segmentation techniques. This pipeline follows a **transfer learning** strategy, where the model is first trained to detect clean solar panels and is then **fine tuned** using the best checkpoint to recognize snow covered panels. The system currently supports two classes (clean and snow), but it is fully scalable and can be easily extended to additional damage types. Finally a **Streamlit** app is also included to provide an intuitive interface for demo and deployment.
+This project uses **PyTorch** and **Mask R-CNN** to automatically detect and localize damage on solar panels from images. It follows a transfer learning approach, where the model is initially trained to identify clean panels and then fine tuned to detect snow covered panels.
+
+The system currently supports two classes (clean and snow), but is designed to be easily extended to additional types of damage. It also includes a **FastAPI** backend for serving predictions and a **Streamlit** frontend for interactive visualization and demo purposes.
 
 ## 📌Features
 - Damage detection using Mask R-CNN on solar panel images
