@@ -6,7 +6,7 @@ COPY Deployment/requirements.txt .
 # Install Python dependenes
 RUN pip install --no-cache-dir -r requirements.txt
 # Copy the rest of the project into the container
-COPY . .
+COPY frontend /app
 # Expose the port Streamlit will use
 EXPOSE 8501
 

@@ -1,0 +1,16 @@
+version: "3.9"
+
+services:
+  app:
+    build: ./app
+    container_name: solar-app
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build: ./frontend
+    container_name: solar-frontend
+    ports:
+      - "8501:8501"
+    depends_on:
+      - app

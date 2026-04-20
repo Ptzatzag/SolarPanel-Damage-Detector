@@ -14,9 +14,17 @@ def predict(image: Image.Image, model):
     boxes = output['boxes'][keep].cpu().numpy()
     labels = output['labels'][keep].cpu().numpy()
     scores = output['scores'][keep].cpu().numpy()
+    masks = output['masks'][keep].cpu().numpy()
 
     results = []
-    for box, label, score in zip(boxes, labels, scores):
-        results.append({'label': int(label), 'score': float(score), 'box': box.tolist()})
-
+    for box, label, score, mask in zip(boxes, labels, scores, masks):
+        mask = mask[0]
+        mask = (mask>0.5).astype(int)
+        
+        results.append({'label': int(label),
+                        'score': float(score),
+                        'box': box.tolist(),
+                        'mask':mask.tolist()
+                        })
+        
     return {'predictions': results}
