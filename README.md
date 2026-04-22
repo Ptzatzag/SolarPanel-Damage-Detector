@@ -27,16 +27,14 @@ uvicorn app.main:app --reload
 ### 2. Start the Streamlit frontend
 ```
 cd Deployment/frontend
-streamkit run SLapp.py
+streamlit run SLapp.py
 ```
 Make sure the backend is running before starting the frontend
 
-## 🐳Docker Deployment
+## 🐳Docker Deployment (Build images and run containers )
 ```
-# Create the docker image
-docker build -t solar-panel-damage-detector .
-# Run the container
-docker run -d -p 8501:8501 solar-panel-damage-detector:latest
+cd Deployment
+docker compose up --build
 ```
 ## Example Output
 ![image](/Examples/CleanExample.PNG)
