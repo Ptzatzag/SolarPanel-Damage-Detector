@@ -27,7 +27,7 @@ uvicorn app.main:app --reload
 ### 2. Start the Streamlit frontend
 ```
 cd Deployment/frontend
-streamkit run SLapp.py
+streamlit run SLapp.py
 ```
 Make sure the backend is running before starting the frontend
 
