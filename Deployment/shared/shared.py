@@ -1,7 +1,6 @@
 import torch
 import torchvision.transforms as T
 from PIL import Image
-import io
 from torchvision.models.detection import maskrcnn_resnet50_fpn
 
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor

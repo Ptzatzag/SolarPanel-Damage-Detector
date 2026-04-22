@@ -4,7 +4,7 @@ import io
 from huggingface_hub import hf_hub_download
 import torch
 from app.inference import predict
-from shared import load_model
+from shared.shared import load_model
 
 # Download weights from HF Hub
 weight_path = hf_hub_download(
