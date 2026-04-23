@@ -4,7 +4,7 @@ from torch.utils.data import DataLoader
 from torch.utils.data import DataLoader
 import torch.optim as optim
 import wandb
-from utils.utils import calc_validation_loss, get_lr, draw_boxes_on_splash, detect_and_color_splash_pytorch
+from utils.utils import calc_validation_loss, get_lr
 from configs.configs import SolarConfig
 from evaluate.evaluate import evaluate
 
