@@ -1,5 +1,6 @@
 from dataclasses import dataclass, asdict
 from typing import Dict, Any
+from pathlib import Path 
 
 @dataclass(slots=True)
 class SolarConfig():
@@ -10,13 +11,15 @@ class SolarConfig():
     # Give the configuration a recognizable name
     name: str = "solar"
     
+    ROOT_DIR = Path(__file__).resolve().parents[1]
+    
     # Paths and class names 
     class_names: list = ['Clean', 'Snow']#,'Dust', 'Physical Damage', 'Electrical Damage', 'Bird Drop', ]  
-    IMAGE_DATA_DIR = '/content/drive/MyDrive/CVision/Data'
-    ANNOTATION_JSON_PATH = '/content/drive/MyDrive/CVision/Data/SnowCOCO.json'
-    WEIGHTS = '/content/drive/MyDrive/CVision/Logs/best_model_25.pth'
-    LOGS = '/content/drive/MyDrive/CVision/Logs/best_model_25.pth'
-    IMAGE_INF_EXAMPLE = '/content/drive/MyDrive/CVision/Data/Physical/Physical (64).jpg'
+    IMAGE_DATA_DIR = '/Data'
+    ANNOTATION_JSON_PATH = '/Data/SnowCOCO.json'
+    # WEIGHTS = '/Logs/best_model_25.pth'
+    LOGS = '/Logs'
+    IMAGE_INF_EXAMPLE = '/Data/Physical/Physical (64).jpg'
     
     # Training schedule
     warmup_steps: int = 10
