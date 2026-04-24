@@ -1,6 +1,5 @@
-from PIL import Image, ImageDraw
+from PIL import Image
 import torch
-import numpy as np
 from shared.shared import preprocess_image
 
 def predict(image: Image.Image, model):
