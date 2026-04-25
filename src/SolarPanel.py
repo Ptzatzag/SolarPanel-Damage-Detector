@@ -59,7 +59,7 @@ parser.add_argument('--weights',
 
 parser.add_argument('--logs',
                     required=False,
-                    metavar=r'C:\Users\panos\CVision\Logs',
+                    metavar=SolarConfig.LOGS,
                     help='Path to logs and checkpoints',
                     default=SolarConfig.LOGS
                     )

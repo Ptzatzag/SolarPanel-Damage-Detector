@@ -117,7 +117,7 @@ def evaluate(model, dataset_val, device, annotation_dir):
     coco_eval_bbox.accumulate()
     coco_eval_bbox.summarize()   #  final summary statistics
     # Extract mAP (IoU=.50:.05:.95) for bounding boxes
-    mAP_bbox = coco_eval_bbox.stats[0]
+    mAP_bbox = coco_eval_bbox.stats[0]   # .stats[0] (mAP@50:95) | .stats[1] (mAP@50) | .stats[2] (mAP@75)
 
     print("\n--- Evaluating Masks ---")
     coco_eval_mask = COCOeval(coco_gt, coco_dt, 'segm') # Use 'segm' for mask evaluation
