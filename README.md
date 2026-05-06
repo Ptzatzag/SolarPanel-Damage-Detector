@@ -10,7 +10,7 @@ The system currently supports two classes (clean and snow), but is designed to b
 - Streamlit interface for real-time inference
 - Open source
 
-## ⚙️Instalation
+## ⚙️Installation
 ```
 git clone https://github.com/Ptzatzag/SolarPanel-Damage-Detector.git
 cd SolarPanel-Damage-Detector
