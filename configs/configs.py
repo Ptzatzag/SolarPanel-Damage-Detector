@@ -14,10 +14,10 @@ class SolarConfig():
     ROOT_DIR = Path(__file__).resolve().parents[1]
     
     # Paths and class names 
-    class_names: list = ['Clean', 'Snow']#,'Dust', 'Physical Damage', 'Electrical Damage', 'Bird Drop', ]  
+    class_names: list = ['Clean', 'Snow']
     IMAGE_DATA_DIR = '/Data'
     ANNOTATION_JSON_PATH = '/Data/SnowCOCO.json'
-    # WEIGHTS = '/Logs/best_model_25.pth'
+    WEIGHTS = '/Logs/best_model_25.pth'
     LOGS = '/Logs'
     IMAGE_INF_EXAMPLE = '/Data/Physical/Physical (64).jpg'
     
