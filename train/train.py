@@ -33,9 +33,9 @@ def train(model, dataset_train, dataset_val, device, activate_l4, activate_l3, a
     patience = 20
     epochs_no_improve = 0
     checkpoint_path = os.path.join(SolarConfig.LOGS, f"Best_Model_Clean_CC.pth")
-#################### NO IDEA ABOUT SCALER ####################
+########################################
     scaler = torch.amp.GradScaler('cuda')    # Gradient scaler, because we use low percision float16 and the grad could underflow
-#################### NO IDEA ABOUT SCALER ####################
+########################################
 
     accumulation_steps = 16  # effective batch size
     for epoch in range(SolarConfig.num_epochs):
@@ -81,9 +81,6 @@ def train(model, dataset_train, dataset_val, device, activate_l4, activate_l3, a
               loss = loss / accumulation_steps   # scale for accumulation
 
             scaler.scale(loss).backward()   # scale the loss
-            #optimizer.zero_grad()
-            #losses.backward()
-            #optimizer.step()
             if (step + 1) % (accumulation_steps) == 0:
               scaler.step(optimizer)    # unscale the gradients before update
               scaler.update()           # update the scale for the next iteration
@@ -124,10 +121,6 @@ def train(model, dataset_train, dataset_val, device, activate_l4, activate_l3, a
           best_avg_val_loss = avg_val_loss
           epochs_no_improve = 0
           torch.save(model.state_dict(), checkpoint_path)
-
-          # checkpoint_path = os.path.join(args.logs, f"best_model_{epoch}.pth")
-          # torch.save(model.state_dict(), checkpoint_path)
-          #wandb.save(checkpoint_path)
           print(f"Saved best model at epoch {epoch+1} with val loss: {avg_val_loss:.4f}")
         else:
           epochs_no_improve += 1

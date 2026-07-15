@@ -1,16 +1,13 @@
 import torch 
 import wandb
-from configs.configs import SolarConfig, InferenceConfig
+from configs.configs import SolarConfig
 from model.maskrcnn import get_model
 from dataset.dataset import SolarDataset
 from train.train import train
-from utils.utils import detect_and_color_splash_pytorch
 from PIL import Image
-from torchvision import transforms
 import argparse
 
 device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-# num_classes = 1 + 2  # background + solar damage classes
 model = get_model(SolarConfig.num_classes)
 
 # Load the best models weights, for the second cycle
