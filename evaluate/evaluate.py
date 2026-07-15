@@ -23,7 +23,7 @@ def evaluate(model, dataset_val, device, annotation_dir):
     predictions = []
 
 
-    image_ids_val = sorted(dataset_val.image_ids) # Check the attributes name
+    image_ids_val = sorted(dataset_val.image_ids)
     #print("Validation image IDs: ", image_ids_val)
     with torch.no_grad():
         for i, (images, targets) in enumerate(data_loader):

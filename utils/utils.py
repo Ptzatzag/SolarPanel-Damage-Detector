@@ -50,7 +50,6 @@ def color_splash(image, mask):
 
 
 def draw_boxes_on_splash(splash_image, output, threshold=0.7, class_names=SolarConfig.class_names):
-    #########
     keep = output['scores'] > threshold
     boxes = output['boxes'][keep].cpu().numpy()
     labels = output['labels'][keep].cpu().numpy()
