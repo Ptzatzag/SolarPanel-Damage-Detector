@@ -7,11 +7,18 @@ from train.train import train
 from PIL import Image
 import argparse
 
+config = SolarConfig()  
 device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-model = get_model(SolarConfig.num_classes)
+model = get_model(config.num_classes)
 
 # Load the best models weights, for the second cycle
-checkpoint = torch.load(SolarConfig.LOGS + "/best_model.pth", map_location=device)
+# checkpoint = torch.load(config.logs_dir + "/best_model.pth", map_location=device)
+checkpoint_path = config.download_weights()  # Download the weights from HF Hub
+
+checkpoint = torch.load(
+    checkpoint_path,
+    map_location=device,
+)
 model.load_state_dict(checkpoint)
 
 model.to(device)
@@ -33,39 +40,39 @@ description='Train Mask R-CNN to detect Solar Panels Damages'
 
 parser.add_argument('--dataset',
                     required=False,
-                    metavar=SolarConfig.IMAGE_DATA_DIR,
+                    metavar=config.image_data_dir,
                     help='Root directory of our dataset',
-                    default=SolarConfig.IMAGE_DATA_DIR
+                    default=config.image_data_dir
                     )
 
 parser.add_argument('--weights',
                     required=False,
                     help='Path to weights .pth file or "coco" ',
-                    default=SolarConfig.WEIGHTS
+                    default=config.weights_path   # needs to be updated 
                     )
 
 parser.add_argument('--logs',
                     required=False,
-                    metavar=SolarConfig.LOGS,
+                    metavar=config.logs_dir,
                     help='Path to logs and checkpoints',
-                    default=SolarConfig.LOGS
+                    default=config.logs_dir
                     )
 
 
 args = parser.parse_args()   # parser.parse_args(['--dataset', 'pass the path that the dataset is located']), alternative way to preset the value of the argument or we could use default
 
-print("Weights: ", args.weights)
+# print("Weights: ", args.weights)
 print("Dataset: ", args.dataset)
 print("Logs: ", args.logs)
 
 
 assert args.dataset, "Argument --dataset is required for training"
 # Prepare datasets
-dataset_train = SolarDataset(dataset_dir=SolarConfig.IMAGE_DATA_DIR, annotation_dir=SolarConfig.ANNOTATION_JSON_PATH, transforms=SolarDataset._get_albumentations_transforms(train=True), mode="train", val_size=0.2)
-dataset_val = SolarDataset(dataset_dir=SolarConfig.IMAGE_DATA_DIR, annotation_dir=SolarConfig.ANNOTATION_JSON_PATH, transforms=SolarDataset._get_albumentations_transforms(train=False), mode="val", val_size=0.2)
+dataset_train = SolarDataset(dataset_dir=config.image_data_dir, annotation_dir=config.annotation_json_path, transforms=SolarDataset._get_albumentations_transforms(train=True), mode="train", val_size=0.2)
+dataset_val = SolarDataset(dataset_dir=config.image_data_dir, annotation_dir=config.annotation_json_path, transforms=SolarDataset._get_albumentations_transforms(train=False), mode="val", val_size=0.2)
 
 wandb.init(project='SolarPanel-Damage-Detector',
-            name=f"Snow_FixLoading",
+            name=f"Snow",
             )
 wandb.watch(model, log="gradients", log_freq=30)
 

@@ -26,19 +26,19 @@ def train(model, dataset_train, dataset_val, device, activate_l4, activate_l3, a
     for param in model.backbone.fpn.parameters():   # keep FPN trainable, better for performance
         param.requires_grad = True
 
-
-    optimizer = optim.AdamW(model.parameters(), lr=SolarConfig.LEARNING_RATE, weight_decay=SolarConfig.WEIGHT_DECAY)
+    config = SolarConfig()  
+    optimizer = optim.AdamW(model.parameters(), lr=config.learning_rate, weight_decay=config.weight_decay)
 
     best_avg_val_loss = float('inf')
     patience = 20
     epochs_no_improve = 0
-    checkpoint_path = os.path.join(SolarConfig.LOGS, f"Best_Model_Clean_CC.pth")
+    checkpoint_path = os.path.join(config.logs_dir, f"Best_Model_Clean_CC.pth")
 ########################################
     scaler = torch.amp.GradScaler('cuda')    # Gradient scaler, because we use low percision float16 and the grad could underflow
 ########################################
 
     accumulation_steps = 16  # effective batch size
-    for epoch in range(SolarConfig.num_epochs):
+    for epoch in range(config.num_epochs):
         # print(f"Allocated: {torch.cuda.memory_allocated()/1024**2:.2f} MB, "
         # f"Reserved: {torch.cuda.memory_reserved()/1024**2:.2f} MB")
 
@@ -109,10 +109,9 @@ def train(model, dataset_train, dataset_val, device, activate_l4, activate_l3, a
 
         # Evaluate 3rd epoch
         if (epoch + 1) % 3 == 0:
-            mAP_bbox, mAP_mask = evaluate(model, dataset_val, device, SolarConfig.ANNOTATION_JSON_PATH)
+            mAP_bbox, mAP_mask = evaluate(model, dataset_val, device, config.annotation_json_path)
             log_data['mAP_bbox'] = mAP_bbox
             log_data['mAP_mask'] = mAP_mask
-
         # Log everything for the current epoch in a single call
         wandb.log(log_data)
 
@@ -130,7 +129,7 @@ def train(model, dataset_train, dataset_val, device, activate_l4, activate_l3, a
             print(f"Early stopping triggered after {patience} epochs with no improvement")
             break
 
-        print(f"Epoch [{epoch+1}/{SolarConfig.num_epochs}], Train Loss: {avg_train_loss:.4f}, Val Loss: {avg_val_loss:.4f}")
+        print(f"Epoch [{epoch+1}/{config.num_epochs}], Train Loss: {avg_train_loss:.4f}, Val Loss: {avg_val_loss:.4f}")
 
 
     # Log model to wandb
