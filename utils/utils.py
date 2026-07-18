@@ -10,6 +10,8 @@ import cv2
 import datetime
 from configs.configs import SolarConfig
 
+config = SolarConfig()  
+
 def calc_validation_loss(model, dataset_val, device):
     model.train()   # Mask RCNN returns list of detections in the eval mode, we need loss dict
 
@@ -24,14 +26,14 @@ def calc_validation_loss(model, dataset_val, device):
         
 def get_lr(it):
         # 1) linear warmup for warmup_iters steps
-        if it < SolarConfig.warmup_steps:
-            return SolarConfig.max_lr * (it+1) / (SolarConfig.warmup_steps+1)
+        if it < config.warmup_steps:
+            return config.max_lr * (it+1) / (config.warmup_steps+1)
         # 2) in between, use cosine decay down to min learning rate
         # Clamp decay_ratio to [0, 1] to prevent assertion errors in case of misaligned inputs
-        decay_ratio = min(1.0, max(0.0, (it - SolarConfig.warmup_steps) / (SolarConfig.num_epochs - SolarConfig.warmup_steps)))
+        decay_ratio = min(1.0, max(0.0, (it - config.warmup_steps) / (config.num_epochs - config.warmup_steps)))
         assert 0 <= decay_ratio <= 1
         coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio))   # coeff starts at 1 and goes to 0
-        return SolarConfig.min_lr + coeff * (SolarConfig.max_lr - SolarConfig.min_lr)
+        return config.min_lr + coeff * (config.max_lr - config.min_lr)
 
     
     
@@ -49,7 +51,7 @@ def color_splash(image, mask):
     return splash
 
 
-def draw_boxes_on_splash(splash_image, output, threshold=0.7, class_names=SolarConfig.class_names):
+def draw_boxes_on_splash(splash_image, output, threshold=0.7, class_names=config.class_names):
     keep = output['scores'] > threshold
     boxes = output['boxes'][keep].cpu().numpy()
     labels = output['labels'][keep].cpu().numpy()
@@ -86,7 +88,7 @@ def detect_and_color_splash_pytorch(model, image_path, device, threshold=0.7):
     print(f"Detections: {len(output['scores'])}, Above threshold: {keep.sum().item()}")
     # Create color splash
     splash = color_splash(image_np, masks.cpu().numpy())
-    final_image = draw_boxes_on_splash(splash, output, threshold, SolarConfig.class_names)
+    final_image = draw_boxes_on_splash(splash, output, threshold, config.class_names)
 
     file_name = "/content/drive/MyDrive/CVision/splash_with_boxes_{:%Y%m%dT%H%M%S}.png".format(datetime.datetime.now())
     cv2.imwrite(file_name, cv2.cvtColor(final_image, cv2.COLOR_RGB2BGR))
