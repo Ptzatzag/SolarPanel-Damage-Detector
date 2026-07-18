@@ -22,7 +22,7 @@ class SolarConfig():
 
     # Classes
     class_names: list[str] = field(
-        default_factory=lambda: ["background", "snow"]
+        default_factory=lambda: ["Clean", "Snow"]
     )
 
     # Training schedule
@@ -32,7 +32,7 @@ class SolarConfig():
     num_epochs: int = 200
 
     # Data / model
-    num_classes: int = 2  # background + damage class
+    num_classes: int = 1 + 2  # background + classes [clean, snow], we have annotations for clean and snow 
     use_mini_mask: bool = False
 
     # Optimization
@@ -45,7 +45,7 @@ class SolarConfig():
 
     def __post_init__(self) -> None:
         self.image_data_dir = self.root_dir / "Data"
-        self.annotation_json_path = self.image_data_dir / "SnowCOCO.json"
+        self.annotation_json_path = self.image_data_dir / "Snow_Updated.json"   
         self.logs_dir = self.root_dir / "Logs"
         self.weights_path = self.logs_dir / "best_model_25.pth"
         self.inference_image_path = (
@@ -82,7 +82,7 @@ class SolarConfig():
     def download_weights(self):
         weight_path = hf_hub_download(
             repo_id="Ptzatzag/solar-panel-detector",
-            filename="best_model.pth"
+            filename="best_modelmult.pth"
             )
         return Path(weight_path)
 
