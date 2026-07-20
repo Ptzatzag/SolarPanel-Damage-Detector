@@ -4,6 +4,7 @@ import torchvision.transforms as T
 from PIL import Image
 import skimage.io
 import skimage.draw
+from torch.utils.data import DataLoader
 import torchvision.transforms as T
 import math
 import cv2
@@ -21,7 +22,30 @@ def calc_validation_loss(model, dataset_val, device):
         module.eval()
       if isinstance(module, torch.nn.modules.Dropout):
         module.eval()
-        
+    
+    data_loader = DataLoader(dataset_val,
+                             batch_size=1,
+                             shuffle=False,
+                             collate_fn=lambda x: tuple(zip(*x)))
+    val_loss = 0.0
+    # with torch.no_grad():   # issues with no tracking the gradient while being on train mode
+    with torch.set_grad_enabled(False):
+      for images, targets in data_loader:
+          images = [img.to(device) for img in images]
+          targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
+          #########
+          with torch.autocast(device_type='cuda', dtype=torch.float16):
+            loss_dict = model(images, targets)
+            # print(loss_dict)
+            losses = sum(loss for loss in loss_dict.values())
+          #print(f"loss in the eval: {losses.item()}")
+          val_loss += losses.item()
+      # cleanup to avoid memory accumulation
+      del loss_dict, losses, images, targets
+      torch.cuda.empty_cache()
+
+    avg_val_loss = val_loss / len(data_loader)
+    return avg_val_loss
         
         
 def get_lr(it):

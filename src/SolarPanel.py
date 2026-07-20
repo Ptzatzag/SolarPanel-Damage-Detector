@@ -71,6 +71,19 @@ assert args.dataset, "Argument --dataset is required for training"
 dataset_train = SolarDataset(dataset_dir=config.image_data_dir, annotation_dir=config.annotation_json_path, transforms=SolarDataset._get_albumentations_transforms(train=True), mode="train", val_size=0.2)
 dataset_val = SolarDataset(dataset_dir=config.image_data_dir, annotation_dir=config.annotation_json_path, transforms=SolarDataset._get_albumentations_transforms(train=False), mode="val", val_size=0.2)
 
+if device.type == 'cpu':
+    print('Using CPU, and small dataset for testing purposes')
+    train_limit = min(10, len(dataset_train))
+    val_limit = min(5, len(dataset_val))
+
+    dataset_train.image_ids = dataset_train.image_ids[:train_limit]
+    dataset_train.image_infos = dataset_train.image_infos[:train_limit]
+    dataset_train.annotation_info = dataset_train.annotation_info[:train_limit]
+
+    dataset_val.image_ids = dataset_val.image_ids[:val_limit]
+    dataset_val.image_infos = dataset_val.image_infos[:val_limit]
+    dataset_val.annotation_info = dataset_val.annotation_info[:val_limit]
+
 wandb.init(project='SolarPanel-Damage-Detector',
             name=f"Snow",
             )

@@ -17,6 +17,7 @@ def evaluate(model, dataset_val, device, annotation_dir):
     model.eval()
     data_loader = DataLoader(dataset_val,
                             batch_size=1,
+                            num_workers=0,
                             shuffle=False,
                             collate_fn=lambda x: tuple(zip(*x)))
 

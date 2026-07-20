@@ -1,7 +1,6 @@
 import torch 
 import os 
 from torch.utils.data import DataLoader
-from torch.utils.data import DataLoader
 import torch.optim as optim
 import wandb
 from utils.utils import calc_validation_loss, get_lr
@@ -14,7 +13,8 @@ def train(model, dataset_train, dataset_val, device, activate_l4, activate_l3, a
 
   ############# Every 50 epochs make a prediction #############
     data_loader = DataLoader(dataset_train,
-                             batch_size=3,
+                             batch_size=1,
+                            #  num_workers=0,
                              shuffle=True,
                              collate_fn=lambda x: tuple(zip(*x)))
 
@@ -32,7 +32,8 @@ def train(model, dataset_train, dataset_val, device, activate_l4, activate_l3, a
     best_avg_val_loss = float('inf')
     patience = 20
     epochs_no_improve = 0
-    checkpoint_path = os.path.join(config.logs_dir, f"Best_Model_Clean_CC.pth")
+    os.makedirs(config.logs_dir, exist_ok=True)
+    checkpoint_path = os.path.join(config.logs_dir, f"Best_Model.pth")
 ########################################
     scaler = torch.amp.GradScaler('cuda')    # Gradient scaler, because we use low percision float16 and the grad could underflow
 ########################################
