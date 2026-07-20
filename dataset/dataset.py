@@ -77,8 +77,7 @@ class SolarDataset(Dataset):
 
         # Process annotations for this image
         annotations = self.map_imgID_to_annotations.get(image_id, [])
-       ##############################################################
-####### Run though annotations and get the boxes and masks for each key
+####### Run though annotations and get the boxes and masks for each key #######
         masks = []
         boxes = []
         boxes_xyxy = []
@@ -196,9 +195,9 @@ class SolarDataset(Dataset):
                 #A.Resize(height=800, width=800),   # Resize the image to lower the overhead
                 A.HorizontalFlip(p=0.5),
                 A.Affine(scale=(0.8, 1.2), translate_percent=(0.1, 0.1), rotate=(-15, 15), p=0.5),
-                A.VerticalFlip(p=0.3), # Added this as it was in your snippet
+                A.VerticalFlip(p=0.3), 
                 A.RandomBrightnessContrast(p=0.2),
-        ####### Update the following transformations #######
+
                 # --- Geometric Transformations ---
                 #A.Rotate(limit=30, p=0.5), # Increased rotation limit
                 # A.ShiftScaleRotate(
@@ -208,6 +207,7 @@ class SolarDataset(Dataset):
 
                 # --- Noise and Occlusions (important for robustness) ---
                 #A.GaussNoise(var_limit=(10, 50), p=0.2), # Add Gaussian noise
+                # --- Geometric Transformations ---
 
                 # Normalize image pixels using ImageNet's mean and std
                 A.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD, max_pixel_value=255.0),
@@ -217,7 +217,6 @@ class SolarDataset(Dataset):
         else:
             # For validation/inference, typically only normalization and tensor conversion are needed
             return A.Compose([
-                #A.Resize(height=800, width=800),   # Resize the image to lower the overhead
                 A.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD, max_pixel_value=255.0),
                 ToTensorV2()
                 ],

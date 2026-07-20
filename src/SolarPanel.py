@@ -1,25 +1,25 @@
 import torch 
 import wandb
-from configs.configs import SolarConfig, InferenceConfig
+from configs.configs import SolarConfig
 from model.maskrcnn import get_model
 from dataset.dataset import SolarDataset
 from train.train import train
-from utils.utils import detect_and_color_splash_pytorch
 from PIL import Image
-from torchvision import transforms
 import argparse
 
+config = SolarConfig()  
 device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-num_classes = 1 + 2  # background + 6 solar damage classes
-model = get_model(num_classes)
+model = get_model(config.num_classes)
 
 # Load the best models weights, for the second cycle
-checkpoint = torch.load("/content/drive/MyDrive/CVision/Logs/best_model.pth", map_location=device)
+# checkpoint = torch.load(config.logs_dir + "/best_model.pth", map_location=device)
+checkpoint_path = config.download_weights()  # Download the weights from HF Hub
+
+checkpoint = torch.load(
+    checkpoint_path,
+    map_location=device,
+)
 model.load_state_dict(checkpoint)
-# # Remove heads from the checkpoint before loading
-# filtered_state_dict = {k: v for k, v in checkpoint.items()
-#                        if not ("box_predictor" in k or "mask_predictor" in k)}
-# model.load_state_dict(filtered_state_dict, strict=False)
 
 model.to(device)
 
@@ -38,101 +38,55 @@ parser = argparse.ArgumentParser(
 description='Train Mask R-CNN to detect Solar Panels Damages'
 )
 
-parser.add_argument('--mode',   # convert it to a positional argument in the .py file
-                    help='train or inference',
-                    required=False,
-                    default='train'
-                    )
-
 parser.add_argument('--dataset',
                     required=False,
-                    metavar=SolarConfig.IMAGE_DATA_DIR,
+                    metavar=config.image_data_dir,
                     help='Root directory of our dataset',
-                    default=SolarConfig.IMAGE_DATA_DIR
+                    default=config.image_data_dir
                     )
-### THE FOLLOWING IS SHOULD BE COMMEND OUT ###
+
 parser.add_argument('--weights',
                     required=False,
                     help='Path to weights .pth file or "coco" ',
-                    default=SolarConfig.WEIGHTS
+                    default=config.weights_path   # needs to be updated 
                     )
 
 parser.add_argument('--logs',
                     required=False,
-                    metavar=SolarConfig.LOGS,
+                    metavar=config.logs_dir,
                     help='Path to logs and checkpoints',
-                    default=SolarConfig.LOGS
+                    default=config.logs_dir
                     )
 
-parser.add_argument('--image', required=False,
-                        metavar="path or URL to image",
-                        help='Image to apply the color splash effect on',
-                        default=SolarConfig.IMAGE_INF_EXAMPLE
-                    )
 
 args = parser.parse_args()   # parser.parse_args(['--dataset', 'pass the path that the dataset is located']), alternative way to preset the value of the argument or we could use default
 
-
-# Validate arguments
-if args.mode == "train":
-    assert args.dataset, "Argument --dataset is required for training"
-elif args.mode == "splash":
-    assert args.image or args.video,\
-            "Provide --image or --video to apply color splash"
-
-print("Weights: ", args.weights)
+# print("Weights: ", args.weights)
 print("Dataset: ", args.dataset)
 print("Logs: ", args.logs)
 
-# Configurations
-if args.mode == "train":
-    config = SolarConfig()
-    assert args.dataset, "Argument --dataset is required for training"
-    #config = SolarConfig()
-    # Prepare datasets
-    dataset_train = SolarDataset(dataset_dir=SolarConfig.IMAGE_DATA_DIR, annotation_dir=SolarConfig.ANNOTATION_JSON_PATH, transforms=SolarDataset._get_albumentations_transforms(train=True), mode="train", val_size=0.2)
-    dataset_val = SolarDataset(dataset_dir=SolarConfig.IMAGE_DATA_DIR, annotation_dir=SolarConfig.ANNOTATION_JSON_PATH, transforms=SolarDataset._get_albumentations_transforms(train=False), mode="val", val_size=0.2)
 
-    wandb.init(project='SolarPanel-Damage-Detector',
-                name=f"Snow_FixLoading",
-                )
-    wandb.watch(model, log="gradients", log_freq=30)
+assert args.dataset, "Argument --dataset is required for training"
+# Prepare datasets
+dataset_train = SolarDataset(dataset_dir=config.image_data_dir, annotation_dir=config.annotation_json_path, transforms=SolarDataset._get_albumentations_transforms(train=True), mode="train", val_size=0.2)
+dataset_val = SolarDataset(dataset_dir=config.image_data_dir, annotation_dir=config.annotation_json_path, transforms=SolarDataset._get_albumentations_transforms(train=False), mode="val", val_size=0.2)
 
-    # train(model, dataset_train, dataset_val, device, activate_backbone=30)
-    train(model, dataset_train, dataset_val, device, activate_l4=60, activate_l3=100, activate_l2=150)
-else:
-    assert args.image, "Provide --image"
+if device.type == 'cpu':
+    print('Using CPU, and small dataset for testing purposes')
+    train_limit = min(10, len(dataset_train))
+    val_limit = min(5, len(dataset_val))
 
-    class InferenceConfig(SolarConfig):
-        # Set batch size to 1 since we'll be running inference on
-        # one image at a time. Batch size = GPU_COUNT * IMAGES_PER_GPU
-        GPU_COUNT = 1
-        IMAGES_PER_GPU = 1
-    config = InferenceConfig()
-    #config.display()
+    dataset_train.image_ids = dataset_train.image_ids[:train_limit]
+    dataset_train.image_infos = dataset_train.image_infos[:train_limit]
+    dataset_train.annotation_info = dataset_train.annotation_info[:train_limit]
 
-    print("Weights: ", args.weights)   # Think if I should add logger instead of print
-    print("Dataset: ", args.dataset)
-    print("Logs: ", args.logs)
+    dataset_val.image_ids = dataset_val.image_ids[:val_limit]
+    dataset_val.image_infos = dataset_val.image_infos[:val_limit]
+    dataset_val.annotation_info = dataset_val.annotation_info[:val_limit]
 
-    # Load model weights
-    model.load_state_dict(torch.load(args.weights)) ##########
-    model.to(device)
-    model.eval()
+wandb.init(project='SolarPanel-Damage-Detector',
+            name=f"Snow",
+            )
+wandb.watch(model, log="gradients", log_freq=30)
 
-
-    # Load image
-    image = Image.open(args.image).convert("RGB")
-
-    # Define preprocessing
-    preprocess = transforms.Compose([
-        transforms.ToTensor(),
-    ])
-
-    # Load and preprocess image
-    image_tensor = preprocess(image).to(device)  # e.g. transforms.ToTensor()
-
-    with torch.no_grad():
-        outputs = model([image_tensor])
-
-        detect_and_color_splash_pytorch(model, args.image, device)
+train(model, dataset_train, dataset_val, device, activate_l4=60, activate_l3=100, activate_l2=150)

@@ -6,8 +6,6 @@ from torchvision.models.detection.mask_rcnn import MaskRCNNPredictor
 
 def get_model(num_classes):
     model = maskrcnn_resnet50_fpn(weights=None)   # Here we load the weights
-    # backbone = resnet_fpn_backbone('resnet101', pretrained=True)
-    # model = MaskRCNN(backbone, num_classes=num_classes)
 
     in_features = model.roi_heads.box_predictor.cls_score.in_features
     model.roi_heads.box_predictor = FastRCNNPredictor(in_features, num_classes)

@@ -9,3 +9,5 @@ Tools/
 HF_Token/
 src/Solar_Panel.py
 Deployment/demo.py
+wandb/
+output.out

@@ -1,6 +1,8 @@
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
+from email.policy import default
 from typing import Dict, Any
 from pathlib import Path 
+from huggingface_hub import hf_hub_download
 
 @dataclass(slots=True)
 class SolarConfig():
@@ -8,19 +10,21 @@ class SolarConfig():
     Base configuration for solar panel damage detection
     
     """
-    # Give the configuration a recognizable name
-    name: str = "solar"
-    
-    ROOT_DIR = Path(__file__).resolve().parents[1]
-    
-    # Paths and class names 
-    class_names: list = ['Clean', 'Snow']#,'Dust', 'Physical Damage', 'Electrical Damage', 'Bird Drop', ]  
-    IMAGE_DATA_DIR = '/Data'
-    ANNOTATION_JSON_PATH = '/Data/SnowCOCO.json'
-    # WEIGHTS = '/Logs/best_model_25.pth'
-    LOGS = '/Logs'
-    IMAGE_INF_EXAMPLE = '/Data/Physical/Physical (64).jpg'
-    
+    root_dir: Path = field(
+        default_factory=lambda: Path(__file__).resolve().parents[1]
+    )
+
+    image_data_dir: Path = field(init=False)
+    annotation_json_path: Path = field(init=False)
+    logs_dir: Path = field(init=False)
+    weights_path: Path = field(init=False)
+    inference_image_path: Path = field(init=False)
+
+    # Classes
+    class_names: list[str] = field(
+        default_factory=lambda: ["Clean", "Snow"]
+    )
+
     # Training schedule
     warmup_steps: int = 10
     max_lr: float = 4e-5
@@ -28,7 +32,7 @@ class SolarConfig():
     num_epochs: int = 200
 
     # Data / model
-    num_classes: int = 3  # background + 2 damage classes
+    num_classes: int = 1 + 2  # background + classes [clean, snow], we have annotations for clean and snow 
     use_mini_mask: bool = False
 
     # Optimization
@@ -38,7 +42,16 @@ class SolarConfig():
     # Hardware
     gpu_count: int = 1
     images_per_gpu: int = 1
-    
+
+    def __post_init__(self) -> None:
+        self.image_data_dir = self.root_dir / "Data"
+        self.annotation_json_path = self.image_data_dir / "Snow_Updated.json"   
+        self.logs_dir = self.root_dir / "Logs"
+        self.weights_path = self.logs_dir / "best_model_25.pth"
+        self.inference_image_path = (
+            self.image_data_dir / "Physical" / "Physical (64).jpg"
+    )  
+        
     @property
     def batch_size(self) -> int:
         return self.gpu_count * self.images_per_gpu
@@ -66,6 +79,12 @@ class SolarConfig():
         print(f"{'batch_size':30} {self.batch_size}")
         print()
 
+    def download_weights(self):
+        weight_path = hf_hub_download(
+            repo_id="Ptzatzag/solar-panel-detector",
+            filename="best_modelmult.pth"
+            )
+        return Path(weight_path)
 
 @dataclass(slots=True)
 class InferenceConfig(SolarConfig):
