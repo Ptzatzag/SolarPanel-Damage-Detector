@@ -192,11 +192,11 @@ class SolarDataset(Dataset):
         if train:
           return A.Compose(
             [
-                #A.Resize(height=800, width=800),   # Resize the image to lower the overhead
                 A.HorizontalFlip(p=0.5),
                 A.Affine(scale=(0.8, 1.2), translate_percent=(0.1, 0.1), rotate=(-15, 15), p=0.5),
                 A.VerticalFlip(p=0.3), 
                 A.RandomBrightnessContrast(p=0.2),
+                A.ToFloat(max_value=255.0),  
 
                 # --- Geometric Transformations ---
                 #A.Rotate(limit=30, p=0.5), # Increased rotation limit
@@ -210,14 +210,15 @@ class SolarDataset(Dataset):
                 # --- Geometric Transformations ---
 
                 # Normalize image pixels using ImageNet's mean and std
-                A.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD, max_pixel_value=255.0),
+                #### No need to normalize the image ####
+                # A.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD, max_pixel_value=255.0),
                 # Converts image and masks to PyTorch tensors, and changes image format from HWC to CHW
                 ToTensorV2()
             ], bbox_params=bbox_params_config)
         else:
             # For validation/inference, typically only normalization and tensor conversion are needed
             return A.Compose([
-                A.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD, max_pixel_value=255.0),
+                #A.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD, max_pixel_value=255.0),
                 ToTensorV2()
                 ],
                 bbox_params=bbox_params_config)
