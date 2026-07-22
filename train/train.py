@@ -39,6 +39,8 @@ def train(model, dataset_train, dataset_val, device, activate_l4, activate_l3, a
 ########################################
 
     accumulation_steps = 16  # effective batch size
+    optimizer.zero_grad()
+
     for epoch in range(config.num_epochs):
         # print(f"Allocated: {torch.cuda.memory_allocated()/1024**2:.2f} MB, "
         # f"Reserved: {torch.cuda.memory_reserved()/1024**2:.2f} MB")

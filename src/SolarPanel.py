@@ -20,6 +20,7 @@ checkpoint = torch.load(
     map_location=device,
 )
 model.load_state_dict(checkpoint)
+del checkpoint  # Free up memory
 
 model.to(device)
 
