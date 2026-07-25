@@ -22,7 +22,7 @@ class SolarConfig():
 
     # Classes
     class_names: list[str] = field(
-        default_factory=lambda: ["Clean", "Snow"]
+        default_factory=lambda: ["Snow", "Clean"]
     )
 
     # Training schedule
