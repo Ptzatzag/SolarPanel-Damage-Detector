@@ -197,28 +197,12 @@ class SolarDataset(Dataset):
                 A.VerticalFlip(p=0.3), 
                 A.RandomBrightnessContrast(p=0.2),
                 A.ToFloat(max_value=255.0),  
-
-                # --- Geometric Transformations ---
-                #A.Rotate(limit=30, p=0.5), # Increased rotation limit
-                # A.ShiftScaleRotate(
-                #     shift_limit=0.0625, scale_limit=0.1, rotate_limit=0, p=0.3
-                # ), # Minor shifts and zooms
-                #A.ElasticTransform(p=0.1, alpha=120, sigma=120 * 0.05, alpha_affine=120 * 0.03), # Distortions
-
-                # --- Noise and Occlusions (important for robustness) ---
-                #A.GaussNoise(var_limit=(10, 50), p=0.2), # Add Gaussian noise
-                # --- Geometric Transformations ---
-
-                # Normalize image pixels using ImageNet's mean and std
-                #### No need to normalize the image ####
-                # A.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD, max_pixel_value=255.0),
-                # Converts image and masks to PyTorch tensors, and changes image format from HWC to CHW
                 ToTensorV2()
             ], bbox_params=bbox_params_config)
         else:
             # For validation/inference, typically only normalization and tensor conversion are needed
             return A.Compose([
-                #A.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD, max_pixel_value=255.0),
+                A.ToFloat(max_value=255.0),
                 ToTensorV2()
                 ],
                 bbox_params=bbox_params_config)
