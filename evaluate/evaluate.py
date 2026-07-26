@@ -11,6 +11,7 @@ import io
 
 
 def evaluate(model, dataset_val, device, annotation_dir):
+    amp_enabled = device.type == "cuda"
     print(f"Evaluate step | Allocated: {torch.cuda.memory_allocated()/1024**2:.2f} MB, "
         f"Reserved: {torch.cuda.memory_reserved()/1024**2:.2f} MB")
 
@@ -31,7 +32,11 @@ def evaluate(model, dataset_val, device, annotation_dir):
      #       print(f"Processing image {i+1} of {len(data_loader)}")
             images = [img.to(device) for img in images]
             targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
-            with torch.autocast(device_type='cuda', dtype=torch.float16):
+            with torch.autocast(
+                device_type=device.type,
+                dtype=torch.float16,
+                enabled=amp_enabled,
+            ):
               outputs = model(images)
             # Move outputs to CPU
             outputs = [{k: v.cpu() for k, v in o.items()} for o in outputs]
