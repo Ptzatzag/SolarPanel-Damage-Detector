@@ -27,8 +27,8 @@ class SolarConfig():
 
     # Training schedule
     warmup_steps: int = 10
-    max_lr: float = 4e-5
-    min_lr: float = 4e-6
+    max_lr: float = 4e-3
+    min_lr: float = 8e-4
     num_epochs: int = 200
 
     # Data / model
