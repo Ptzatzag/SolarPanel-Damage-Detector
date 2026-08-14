@@ -15,6 +15,7 @@ config = SolarConfig()
 
 def calc_validation_loss(model, dataset_val, device):
     model.train()   # Mask RCNN returns list of detections in the eval mode, we need loss dict
+    amp_enabled = device.type == "cuda"
 
     # Hack for simulating eval mode, by switching Batch norm and dropout layers to eval mode
     for module in model.modules():
@@ -34,7 +35,11 @@ def calc_validation_loss(model, dataset_val, device):
           images = [img.to(device) for img in images]
           targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
           #########
-          with torch.autocast(device_type='cuda', dtype=torch.float16):
+          with torch.autocast(
+              device_type=device.type,
+              dtype=torch.float16,
+              enabled=amp_enabled,
+          ):
             loss_dict = model(images, targets)
             # print(loss_dict)
             losses = sum(loss for loss in loss_dict.values())

@@ -11,6 +11,7 @@ import io
 
 
 def evaluate(model, dataset_val, device, annotation_dir):
+    amp_enabled = device.type == "cuda"
     print(f"Evaluate step | Allocated: {torch.cuda.memory_allocated()/1024**2:.2f} MB, "
         f"Reserved: {torch.cuda.memory_reserved()/1024**2:.2f} MB")
 
@@ -31,12 +32,15 @@ def evaluate(model, dataset_val, device, annotation_dir):
      #       print(f"Processing image {i+1} of {len(data_loader)}")
             images = [img.to(device) for img in images]
             targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
-            with torch.autocast(device_type='cuda', dtype=torch.float16):
+            with torch.autocast(
+                device_type=device.type,
+                dtype=torch.float16,
+                enabled=amp_enabled,
+            ):
               outputs = model(images)
             # Move outputs to CPU
             outputs = [{k: v.cpu() for k, v in o.items()} for o in outputs]
 
-########### ADD AUTOCAST HERE
             # Process outputs and convert to COCO format
             for img_idx, output in enumerate(outputs):
                 image_id = targets[img_idx]['image_id'].item()
@@ -46,9 +50,7 @@ def evaluate(model, dataset_val, device, annotation_dir):
                 if len(output['boxes']) == 0:
                     continue
 
-                # Filter out predictions with low confidence scores (e.g., < 0.05 or 0.1)
-                # This helps in mAP calculation by reducing many low-quality FPs
-                score_threshold = 0.5 # You can tune this threshold
+                score_threshold = 0.001 
                 keep = output['scores'] > score_threshold
 
                 boxes = output['boxes'][keep].numpy()

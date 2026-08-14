@@ -34,11 +34,12 @@ def train(model, dataset_train, dataset_val, device, activate_l4, activate_l3, a
     epochs_no_improve = 0
     os.makedirs(config.logs_dir, exist_ok=True)
     checkpoint_path = os.path.join(config.logs_dir, f"Best_Model.pth")
-########################################
-    scaler = torch.amp.GradScaler('cuda')    # Gradient scaler, because we use low percision float16 and the grad could underflow
-########################################
+    amp_enabled = device.type == "cuda"
+    scaler = torch.amp.GradScaler("cuda", enabled=amp_enabled)
 
     accumulation_steps = 16  # effective batch size
+    optimizer.zero_grad()
+
     for epoch in range(config.num_epochs):
         # print(f"Allocated: {torch.cuda.memory_allocated()/1024**2:.2f} MB, "
         # f"Reserved: {torch.cuda.memory_reserved()/1024**2:.2f} MB")
@@ -76,7 +77,11 @@ def train(model, dataset_train, dataset_val, device, activate_l4, activate_l3, a
             targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
 
             # Use Automatic Mixed Precision (AMP) to reduce the overhead
-            with torch.autocast(device_type='cuda', dtype=torch.float16):
+            with torch.autocast(
+                device_type=device.type,
+                dtype=torch.float16,
+                enabled=amp_enabled,
+            ):
               loss_dict = model(images, targets)
               loss = sum(loss for loss in loss_dict.values())
               loss = loss / accumulation_steps   # scale for accumulation
