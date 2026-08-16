@@ -3,14 +3,14 @@ This project uses **PyTorch** and **Mask R-CNN** to automatically detect and loc
 
 The system currently supports two classes (clean and snow), but is designed to be easily extended to additional types of damage. It also includes a **FastAPI** backend for serving predictions and a **Streamlit** frontend for interactive visualization and demo purposes.
 
-## 📌Features
+## Features
 - Damage detection using Mask R-CNN on solar panel images
 - Custom dataset loading and preprocessing
 - Evaluation metrics and visualization tools
 - Streamlit interface for real-time inference
 - Open source
 
-## ⚙️Installation
+## Installation
 ```
 git clone https://github.com/Ptzatzag/SolarPanel-Damage-Detector.git
 cd SolarPanel-Damage-Detector
@@ -18,7 +18,7 @@ pip install -r requirements.txt
 
 ```
 
-## 🚀Running the application
+## Running the application
 ### 1. Start the FastAPI backend:
 ```
 cd Deployment
@@ -31,7 +31,7 @@ streamlit run SLapp.py
 ```
 Make sure the backend is running before starting the frontend
 
-## 🐳Docker Deployment (Build images and run containers )
+## Docker Deployment (Build images and run containers )
 ```
 cd Deployment
 docker compose up --build
@@ -40,5 +40,5 @@ docker compose up --build
 ![image](/Examples/CleanExample.PNG)
 ![image](/Examples/SnowExample.PNG)
 
-## 📝License 
+## License 
 This project is licensed under the MIT License. See the LICENSE file for details.  
