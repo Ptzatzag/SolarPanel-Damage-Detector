@@ -41,13 +41,12 @@ def train(model, dataset_train, dataset_val, device, activate_l4, activate_l3, a
     optimizer.zero_grad()
 
     for epoch in range(config.num_epochs):
-        # print(f"Allocated: {torch.cuda.memory_allocated()/1024**2:.2f} MB, "
-        # f"Reserved: {torch.cuda.memory_reserved()/1024**2:.2f} MB")
-
+        lr = get_lr(epoch)
+        for param_group in optimizer.param_groups:
+            param_group['lr'] = lr
+      
         if epoch == activate_l4:
           print(f"Finetune, activate backbone at epoch {epoch}")
-          # for param in model.backbone.parameters():
-          #     param.requires_grad = True
           for name, param in model.backbone.named_parameters():
             if "layer4" in name:
               param.requires_grad = True
@@ -59,13 +58,18 @@ def train(model, dataset_train, dataset_val, device, activate_l4, activate_l3, a
         if epoch == activate_l2:
           print(f"Activate Layer 2 at epoch {epoch}")
           for name, param in model.backbone.named_parameters():
-            if "layer2" in name: #or "layer1" in name:
+            if "layer2" in name:
               param.requires_grad = True
+
+
         # if epoch == activate_l1:   # epoch num 250, and full backbone activation with remaining 10 epochs
         #   print(f"Active Layer 1 at epoch {epoch}")
         #   for name, param in model.backbone.named_parameters():
         #       if "layer1" in name:
         #         param.requires_grad = True
+
+
+
 
         model.train()
         running_loss = 0.0
@@ -87,7 +91,7 @@ def train(model, dataset_train, dataset_val, device, activate_l4, activate_l3, a
               loss = loss / accumulation_steps   # scale for accumulation
 
             scaler.scale(loss).backward()   # scale the loss
-            if (step + 1) % (accumulation_steps) == 0:
+            if ((step + 1) % (accumulation_steps) == 0 or (step + 1) == len(data_loader)):
               scaler.step(optimizer)    # unscale the gradients before update
               scaler.update()           # update the scale for the next iteration
               optimizer.zero_grad()
@@ -98,12 +102,7 @@ def train(model, dataset_train, dataset_val, device, activate_l4, activate_l3, a
         avg_train_loss = running_loss / len(data_loader)
         # Clean up memory
         torch.cuda.empty_cache()
-        avg_val_loss = calc_validation_loss(model, dataset_val, device)
-
-        # # Update the learning rate per epoch
-        for param_group in optimizer.param_groups:
-            param_group['lr'] = get_lr(epoch)
-
+        avg_val_loss = calc_validation_loss(model, dataset_val, device)        
         current_lr = optimizer.param_groups[0]['lr']
 
         log_data = {

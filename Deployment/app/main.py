@@ -4,7 +4,7 @@ import io
 from huggingface_hub import hf_hub_download
 import torch
 from inference import predict
-from shared.shared import load_model
+from model.maskrcnn import load_model
 
 
 # Download weights from HF Hub

@@ -56,7 +56,7 @@ def calc_validation_loss(model, dataset_val, device):
 def get_lr(it):
         # 1) linear warmup for warmup_iters steps
         if it < config.warmup_steps:
-            return config.max_lr * (it+1) / (config.warmup_steps+1)
+            return config.max_lr * (it+1) / (config.warmup_steps)
         # 2) in between, use cosine decay down to min learning rate
         # Clamp decay_ratio to [0, 1] to prevent assertion errors in case of misaligned inputs
         decay_ratio = min(1.0, max(0.0, (it - config.warmup_steps) / (config.num_epochs - config.warmup_steps)))
