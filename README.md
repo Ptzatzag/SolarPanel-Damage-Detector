@@ -21,8 +21,7 @@ pip install -r requirements.txt
 ## Running the application
 ### 1. Start the FastAPI backend:
 ```
-cd Deployment
-uvicorn app.main:app --reload
+uvicorn Deployment.app.main:app --reload
 ```
 ### 2. Start the Streamlit frontend
 ```
