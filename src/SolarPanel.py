@@ -4,7 +4,6 @@ from configs.configs import SolarConfig
 from model.maskrcnn import get_model
 from dataset.dataset import SolarDataset
 from train.train import train
-from PIL import Image
 import argparse
 
 def main():
