@@ -1,6 +1,6 @@
 from PIL import Image
 import torch
-from shared.shared import preprocess_image
+from .shared.shared import preprocess_image
 
 def predict(image: Image.Image, model):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
