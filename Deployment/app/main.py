@@ -3,7 +3,7 @@ from PIL import Image
 import io
 from huggingface_hub import hf_hub_download
 import torch
-from inference import predict
+from .inference import predict
 from model.maskrcnn import load_model
 
 

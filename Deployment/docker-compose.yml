@@ -2,7 +2,10 @@ version: "3.9"
 
 services:
   app:
-    build: ./app
+    build:
+      context: ..
+      dockerfile: Deployment/app/Dockerfile
+    
     container_name: solar-app
     ports:
       - "8000:8000"

@@ -1,12 +1,16 @@
 FROM python:3.10-slim
 # Set working directory in the container
 WORKDIR /app
+
 # Copy requirements first (for caching)
-COPY requirements.txt .
+COPY Deployment/app/requirements.txt .
 # Install Python dependenes
 RUN pip install --no-cache-dir -r requirements.txt
-# Copy the rest of the project into the container
-COPY . .
+
+
+COPY model ./model
+COPY Deployment/app ./Deployment/app
+
 # Expose the port api will use
 EXPOSE 8000
 
