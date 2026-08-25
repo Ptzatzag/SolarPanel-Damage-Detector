@@ -25,3 +25,4 @@ def load_model(model_path, device, num_classes=3):
     model.load_state_dict(checkpoint)
     model.to(device)
     model.eval()
+    return model
