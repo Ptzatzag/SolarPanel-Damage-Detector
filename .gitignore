@@ -11,3 +11,5 @@ src/Solar_Panel.py
 Deployment/demo.py
 wandb/
 output.out
+notebook.ipynb
+NOTES.md

@@ -20,9 +20,13 @@ class SolarDataset(Dataset):
                  annotation_dir: str,
                  transforms: Optional[Callable]=None,
                  mode: str="train",
-                 val_size: float = 0.2) -> None:
+                 val_size: float = 0.2,
+                 category_mapping:Optional[dict[int, int]]=None
+                 ) -> None:
+        
         self.dataset_dir = dataset_dir
         self.transforms = transforms
+        self.category_mapping = category_mapping
 
         with open(annotation_dir) as f:
             annotation_dict = json.load(f)
@@ -35,7 +39,6 @@ class SolarDataset(Dataset):
 
         self.map_imgID_to_annotations = {}
         for ann_info in self.annotation_info:
-            # print(idx, ann_info)
             key = ann_info.get('image_id')
             if key in self.map_imgID_to_annotations:
                 self.map_imgID_to_annotations[key].append(ann_info)
@@ -56,8 +59,8 @@ class SolarDataset(Dataset):
             self.image_ids = all_image_ids_with_annotations
 
         self.image_infos = [self.image_id_to_info[k] for k in self.image_ids]
-        self.annotation_info = [self.map_imgID_to_annotations[k] for k in self.image_ids]    ### Check this
-
+        self.annotation_info = [self.map_imgID_to_annotations[k] for k in self.image_ids]    
+        
     def __len__(self):
         return len(self.image_ids)
 
@@ -117,7 +120,15 @@ class SolarDataset(Dataset):
 
             # masks.append(decoded_mask)
             boxes.append(ann['bbox'])
-            labels.append(ann['category_id'])
+            # labels.append(ann['category_id'])
+################################################################
+            original_category_id = ann["category_id"]
+            if self.category_mapping is None:
+                label = original_category_id
+            else:
+                label = self.category_mapping[original_category_id]
+            labels.append(label)
+
             iscrowd_flags.append(ann['iscrowd'])
 
 
