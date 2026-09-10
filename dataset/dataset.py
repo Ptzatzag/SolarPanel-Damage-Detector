@@ -17,7 +17,7 @@ from albumentations.pytorch import ToTensorV2
 class SolarDataset(Dataset):
     def __init__(self,
                  dataset_dir: str,
-                 annotation_dir: str,
+                 annotation_path: str,
                  transforms: Optional[Callable]=None,
                  mode: str="train",
                  val_size: float = 0.2,
@@ -28,7 +28,7 @@ class SolarDataset(Dataset):
         self.transforms = transforms
         self.category_mapping = category_mapping
 
-        with open(annotation_dir) as f:
+        with open(annotation_path) as f:
             annotation_dict = json.load(f)
 
         self.annotation_info = [img for img in annotation_dict.get("annotations")]   # keys: ['id', 'image_id', 'category_id', 'segmentation', 'area', 'bbox', 'iscrowd', 'attributes']
