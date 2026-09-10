@@ -66,6 +66,10 @@ def main():
                         default=config.logs_dir
                         )
 
+    parser.add_argument("--wandb",
+                        action="store_true",
+                        help="Enable Weights & Biases experiment tracking"
+                        )
 
     args = parser.parse_args()   # parser.parse_args(['--dataset', 'pass the path that the dataset is located']), alternative way to preset the value of the argument or we could use default
 
@@ -77,13 +81,21 @@ def main():
     assert args.dataset, "Argument --dataset is required for training"
     # Prepare datasets
 
-    category_mapping = {
-        0: 0,
-        4: 1,
-        2: 2,
-    }
-    dataset_train = SolarDataset(dataset_dir=config.image_data_dir, annotation_dir=config.annotation_json_path, transforms=SolarDataset._get_albumentations_transforms(train=True), mode="train", val_size=0.2, category_mapping=category_mapping)
-    dataset_val = SolarDataset(dataset_dir=config.image_data_dir, annotation_dir=config.annotation_json_path, transforms=SolarDataset._get_albumentations_transforms(train=False), mode="val", val_size=0.2, category_mapping=category_mapping)
+    category_mapping = None   # add the map to configs 
+
+    dataset_train = SolarDataset(dataset_dir=config.image_data_dir, 
+                                 annotation_path=config.annotation_json_path, 
+                                 transforms=SolarDataset._get_albumentations_transforms(train=True), 
+                                 mode="train", 
+                                 val_size=0.2, 
+                                 category_mapping=category_mapping)
+
+    dataset_val = SolarDataset(dataset_dir=config.image_data_dir,
+                               annotation_path=config.annotation_json_path,
+                               transforms=None,
+                               mode="val",
+                               val_size=0.2,
+                               category_mapping=category_mapping)
 
     if device.type == 'cpu':
         print('Using CPU, and small dataset for testing purposes')
@@ -100,6 +112,8 @@ def main():
 
     wandb.init(project='SolarPanel-Damage-Detector',
                 name=f"Snow",
+                mode="online" if args.wandb else "disabled",
+                config=config.to_dict()
                 )
     wandb.watch(model, log="gradients", log_freq=30)
 
