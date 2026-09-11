@@ -7,6 +7,7 @@ from train.train import train
 import argparse
 
 def main():
+    config = SolarConfig()
     parser = argparse.ArgumentParser(
         description='Train Mask R-CNN to detect Solar Panels Damages'
         )
@@ -45,7 +46,6 @@ def main():
     
     assert args.dataset, "Argument --dataset is required for training"
     
-    config = SolarConfig()  
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     model = get_model(config.num_classes)
 
