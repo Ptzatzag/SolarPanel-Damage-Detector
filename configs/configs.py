@@ -82,7 +82,8 @@ class SolarConfig():
     def download_weights(self):
         weight_path = hf_hub_download(
             repo_id="Ptzatzag/solar-panel-detector",
-            filename="best_modelmult.pth"
+            filename="Best_Model_Clean_CC.pth"
+
             )
         return Path(weight_path)
 
