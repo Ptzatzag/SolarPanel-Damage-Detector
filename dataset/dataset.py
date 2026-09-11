@@ -108,7 +108,12 @@ class SolarDataset(Dataset):
 
             boxes_xyxy.append([x_min, y_min, x_max, y_max])
 
-            rle_mask = ann['segmentation']
+            rle_mask = ann.get('segmentation')
+            if not rle_mask:
+                raise ValueError(
+                    f"Annotation {ann.get('id')} for image {image_id} has missing "
+                    "or empty segmentation; Mask R-CNN requires instance masks."
+                )
             rles = pycoco_mask.frPyObjects(rle_mask, height, width)
 
             decoded_mask = pycoco_mask.decode(rles)

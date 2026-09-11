@@ -7,7 +7,45 @@ from train.train import train
 import argparse
 
 def main():
-    config = SolarConfig()  
+    config = SolarConfig()
+    parser = argparse.ArgumentParser(
+        description='Train Mask R-CNN to detect Solar Panels Damages'
+        )
+    
+    parser.add_argument('--dataset',
+                        required=False,
+                        metavar=config.image_data_dir,
+                        help='Root directory of our dataset',
+                        default=config.image_data_dir
+                        )
+
+    parser.add_argument('--weights',
+                        required=False,
+                        help='Path to weights .pth file or "coco" ',
+                        default=config.weights_path   # needs to be updated 
+                        )
+
+    parser.add_argument('--logs',
+                        required=False,
+                        metavar=config.logs_dir,
+                        help='Path to logs and checkpoints',
+                        default=config.logs_dir
+                        )
+
+    parser.add_argument("--wandb",
+                        action="store_true",
+                        help="Enable Weights & Biases experiment tracking"
+                        )
+
+    args = parser.parse_args()   # parser.parse_args(['--dataset', 'pass the path that the dataset is located']), alternative way to preset the value of the argument or we could use default
+
+    # print("Weights: ", args.weights)
+    print("Dataset: ", args.dataset)
+    print("Logs: ", args.logs)
+    
+    
+    assert args.dataset, "Argument --dataset is required for training"
+    
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     model = get_model(config.num_classes)
 
@@ -41,46 +79,7 @@ def main():
 
     print(f"Model size: {model_size_bytes / 1024**3:.2f} GB")
 
-    # Parse command line arguments
-    parser = argparse.ArgumentParser(
-    description='Train Mask R-CNN to detect Solar Panels Damages'
-    )
-
-    parser.add_argument('--dataset',
-                        required=False,
-                        metavar=config.image_data_dir,
-                        help='Root directory of our dataset',
-                        default=config.image_data_dir
-                        )
-
-    parser.add_argument('--weights',
-                        required=False,
-                        help='Path to weights .pth file or "coco" ',
-                        default=config.weights_path   # needs to be updated 
-                        )
-
-    parser.add_argument('--logs',
-                        required=False,
-                        metavar=config.logs_dir,
-                        help='Path to logs and checkpoints',
-                        default=config.logs_dir
-                        )
-
-    parser.add_argument("--wandb",
-                        action="store_true",
-                        help="Enable Weights & Biases experiment tracking"
-                        )
-
-    args = parser.parse_args()   # parser.parse_args(['--dataset', 'pass the path that the dataset is located']), alternative way to preset the value of the argument or we could use default
-
-    # print("Weights: ", args.weights)
-    print("Dataset: ", args.dataset)
-    print("Logs: ", args.logs)
-
-
-    assert args.dataset, "Argument --dataset is required for training"
-    # Prepare datasets
-
+    
     category_mapping = None   # add the map to configs 
 
     dataset_train = SolarDataset(dataset_dir=config.image_data_dir, 
