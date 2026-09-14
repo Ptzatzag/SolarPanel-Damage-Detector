@@ -3,7 +3,8 @@ import requests
 from PIL import Image, ImageDraw
 import numpy as np
 
-API_URL = "http://app:8000/predict"
+API_URL = "http://app:8000/predict"   # for docker-compose
+# API_URL = "http://localhost:8000/predict"   # when running local
 
 st.set_page_config(page_title="Solar Panel Damage Detector", layout="wide")
 st.title("Solar Panel Damage Detector")
@@ -74,7 +75,7 @@ if uploaded_file is not None:
                 st.success("Inference completed")
                 annotated = draw_detections(image, result)
                 st.subheader("Prediction result")
-                st.image(annotated, caption="Detected damge", use_column_width=True)
+                st.image(annotated, caption="Detected damge", width="stretch")
                 
                 st.subheader("Raw prediction result")
                 st.json(result)
