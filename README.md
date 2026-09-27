@@ -35,9 +35,51 @@ Make sure the backend is running before starting the frontend
 cd Deployment
 docker compose up --build
 ```
-## Example Output
+
+
+## Model Performance
+
+The final model was fine-tuned for solar-panel condition detection using the Stage 1 solar-panel detector as initialization.
+
+### Evaluation Results
+
+| Metric | Value |
+| --- | ---: |
+| Bounding Box mAP@50:95 | **0.378** |
+| Segmentation Mask mAP@50:95 | **0.415** |
+| Training Loss | 0.717 |
+| Validation Loss | 1.165 |
+| Reported Epoch | 87 |
+| Learning Rate | 5.38 × 10⁻⁴ |
+
+The reported mAP values use the COCO evaluation metric averaged across IoU thresholds from 0.50 to 0.95.
+
+### Training Hardware
+
+| Component | Specification |
+| --- | --- |
+| CPU Cores | 64 |
+| Logical CPU Cores | 128 |
+| GPU Count | 1 |
+| GPU | NVIDIA RTX PRO 4500 Blackwell Server Edition |
+
+### Training Configuration
+
+- Model: Mask R-CNN with ResNet-50 FPN backbone
+- Input resolution: 512 × 512
+- Mixed-precision training (AMP)
+- Gradient accumulation for a larger effective batch size
+- AdamW optimizer
+- Learning-rate warmup followed by cosine decay
+- Progressive backbone unfreezing during fine-tuning
+  
+## Inference Examples
+### Clean Solar Panel Detection
 ![image](/Examples/CleanExample.PNG)
+### Snow-Covered Panel Detection
 ![image](/Examples/SnowExample.PNG)
+
+The model detects snow-covered solar panels, although segmentation accuracy remains more challenging for this class. Performance can vary depending on snow coverage, lighting conditions, and panel visibility.
 
 ## License 
 This project is licensed under the MIT License. See the LICENSE file for details.  
