@@ -13,49 +13,54 @@ def main():
         description='Train Mask R-CNN to detect Solar Panels Damages'
         )
     
-    parser.add_argument('--dataset',
-                        required=False,
-                        metavar=config.image_data_dir,
-                        help='Root directory of our dataset',
-                        default=config.image_data_dir
-                        )
+    parser.add_argument(
+    "--dataset",
+    type=Path,
+    default=None,
+    metavar="DIR",
+    help="Root directory of our dataset",
+    )
 
-    parser.add_argument('--weights',
-                        required=False,
-                        help='Path to weights .pth file or "coco" ',
-                        default=config.weights_path   # needs to be updated 
-                        )
+    parser.add_argument(
+        "--annotations",
+        type=Path,
+        default=None,
+        metavar="PATH",
+        help="Path to the annotation JSON file",
+    )
 
-    parser.add_argument('--logs',
-                        required=False,
-                        metavar=config.logs_dir,
-                        help='Path to logs and checkpoints',
-                        default=config.logs_dir
-                        )
+    parser.add_argument(
+        "--weights",
+        default=None,
+        metavar="PATH_OR_COCO",
+        help='Path to weights .pth file or "coco"',
+    )
 
-    parser.add_argument("--wandb",
-                        action="store_true",
-                        help="Enable Weights & Biases experiment tracking"
-                        )
+    parser.add_argument(
+        "--logs",
+        type=Path,
+        default=None,
+        metavar="DIR",
+        help="Path to logs and checkpoints",
+    )
 
-    args = parser.parse_args()   # parser.parse_args(['--dataset', 'pass the path that the dataset is located']), alternative way to preset the value of the argument or we could use default
+    parser.add_argument(
+        "--wandb",
+        action="store_true",
+        help="Enable Weights & Biases experiment tracking",
+    )
+
+    args = parser.parse_args()
 
     config = SolarConfig(
-           image_data_dir=args.dataset,
-            annotation_json_path=args.annotations,
-            logs_dir=args.logs,
-            inference_image_path=args.image,
-        )
-    
-    # print("Weights: ", args.weights)
-    print("Dataset: ", args.dataset)
-    print("Logs: ", args.logs)
-    
+        image_data_dir=args.dataset,
+        annotation_json_path=args.annotations,
+        logs_dir=args.logs,
+    )
     
     assert args.dataset, "Argument --dataset is required for training"
     
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    print(f"We are using {device}")
     model = get_model(config.num_classes)
 
 
