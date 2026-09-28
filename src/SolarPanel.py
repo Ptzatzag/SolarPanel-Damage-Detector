@@ -5,9 +5,10 @@ from model.maskrcnn import get_model
 from dataset.dataset import SolarDataset
 from train.train import train
 import argparse
+from pathlib import Path 
+
 
 def main():
-    config = SolarConfig()
     parser = argparse.ArgumentParser(
         description='Train Mask R-CNN to detect Solar Panels Damages'
         )
@@ -39,6 +40,13 @@ def main():
 
     args = parser.parse_args()   # parser.parse_args(['--dataset', 'pass the path that the dataset is located']), alternative way to preset the value of the argument or we could use default
 
+    config = SolarConfig(
+           image_data_dir=args.dataset,
+            annotation_json_path=args.annotations,
+            logs_dir=args.logs,
+            inference_image_path=args.image,
+        )
+    
     # print("Weights: ", args.weights)
     print("Dataset: ", args.dataset)
     print("Logs: ", args.logs)
@@ -47,6 +55,7 @@ def main():
     assert args.dataset, "Argument --dataset is required for training"
     
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+    print(f"We are using {device}")
     model = get_model(config.num_classes)
 
 
