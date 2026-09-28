@@ -14,11 +14,11 @@ class SolarConfig():
         default_factory=lambda: Path(__file__).resolve().parents[1]
     )
 
-    image_data_dir: Path = field(init=False)
-    annotation_json_path: Path = field(init=False)
-    logs_dir: Path = field(init=False)
-    weights_path: Path = field(init=False)
-    inference_image_path: Path = field(init=False)
+    image_data_dir: Path | None = None
+    annotation_json_path: Path | None = None
+    logs_dir: Path | None = None
+    weights_path: Path | None = None
+    inference_image_path: Path | None = None
 
     # Classes
     class_names: list[str] = field(
@@ -42,16 +42,34 @@ class SolarConfig():
     # Hardware
     gpu_count: int = 1
     images_per_gpu: int = 1
-
+    
     def __post_init__(self) -> None:
-        self.image_data_dir = self.root_dir / "Data"
-        self.annotation_json_path = self.image_data_dir / "Snow_Updated.json"   
-        self.logs_dir = self.root_dir / "Logs"
-        self.weights_path = self.logs_dir / "best_model_25.pth"
-        self.inference_image_path = (
-            self.image_data_dir / "Physical" / "Physical (64).jpg"
-    )  
-        
+        self.root_dir = Path(self.root_dir)
+
+        self.image_data_dir = (
+            Path(self.image_data_dir)
+            if self.image_data_dir is not None
+            else self.root_dir / "Data"
+        )
+
+        self.annotation_json_path = (
+            Path(self.annotation_json_path)
+            if self.annotation_json_path is not None
+            else self.image_data_dir / "Snow_Updated.json"
+        )
+
+        self.logs_dir = (
+            Path(self.logs_dir)
+            if self.logs_dir is not None
+            else self.root_dir / "Logs"
+        )
+
+        if self.weights_path is not None:
+            self.weights_path = Path(self.weights_path)
+
+        if self.inference_image_path is not None:
+            self.inference_image_path = Path(self.inference_image_path)
+
     @property
     def batch_size(self) -> int:
         return self.gpu_count * self.images_per_gpu
