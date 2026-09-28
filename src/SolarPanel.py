@@ -124,13 +124,13 @@ def main():
         dataset_val.annotation_info = dataset_val.annotation_info[:val_limit]
 
     wandb.init(project='SolarPanel-Damage-Detector',
-                name=f"Snow",
+                name=f"Snow",   # refactor so can be modularize 
                 mode="online" if args.wandb else "disabled",
                 config=config.to_dict()
                 )
     wandb.watch(model, log="gradients", log_freq=30)
 
-    train(model, dataset_train, dataset_val, device, activate_l4=60, activate_l3=100, activate_l2=150)
+    train(model, dataset_train, dataset_val, device, activate_l4=60, activate_l3=100, activate_l2=150, config=config)
 
 
 if __name__ == "__main__":
