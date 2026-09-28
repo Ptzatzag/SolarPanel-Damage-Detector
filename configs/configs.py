@@ -27,7 +27,7 @@ class SolarConfig():
 
     # Training schedule
     warmup_steps: int = 10
-    max_lr: float = 4e-3
+    max_lr: float = 4e-4
     min_lr: float = 8e-4
     num_epochs: int = 200
 
@@ -36,13 +36,13 @@ class SolarConfig():
     use_mini_mask: bool = False
 
     # Optimization
-    learning_rate: float = 1e-3
+    learning_rate: float = 1e-4
     weight_decay: float = 1e-4
 
     # Hardware
     gpu_count: int = 1
     images_per_gpu: int = 1
-    
+
     def __post_init__(self) -> None:
         self.root_dir = Path(self.root_dir)
 
