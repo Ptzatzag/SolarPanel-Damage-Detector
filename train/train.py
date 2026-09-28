@@ -9,7 +9,7 @@ from evaluate.evaluate import evaluate
 
 
 
-def train(model, dataset_train, dataset_val, device, activate_l4, activate_l3, activate_l2):
+def train(model, dataset_train, dataset_val, device, activate_l4, activate_l3, activate_l2, config:SolarConfig):
 
   ############# Every 50 epochs make a prediction #############
     data_loader = DataLoader(dataset_train,
@@ -26,7 +26,6 @@ def train(model, dataset_train, dataset_val, device, activate_l4, activate_l3, a
     for param in model.backbone.fpn.parameters():   # keep FPN trainable, better for performance
         param.requires_grad = True
 
-    config = SolarConfig()  
     optimizer = optim.AdamW(model.parameters(), lr=config.learning_rate, weight_decay=config.weight_decay)
 
     best_avg_val_loss = float('inf')
@@ -41,7 +40,7 @@ def train(model, dataset_train, dataset_val, device, activate_l4, activate_l3, a
     optimizer.zero_grad()
 
     for epoch in range(config.num_epochs):
-        lr = get_lr(epoch)
+        lr = get_lr(epoch, config)
         for param_group in optimizer.param_groups:
             param_group['lr'] = lr
       

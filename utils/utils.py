@@ -4,8 +4,6 @@ import torchvision.transforms as T
 import math
 from configs.configs import SolarConfig
 
-config = SolarConfig()  
-
 def calc_validation_loss(model, dataset_val, device):
     model.train()   # Mask RCNN returns list of detections in the eval mode, we need loss dict
     amp_enabled = device.type == "cuda"
@@ -46,7 +44,7 @@ def calc_validation_loss(model, dataset_val, device):
     return avg_val_loss
         
         
-def get_lr(it):
+def get_lr(it, config:SolarConfig):
         # 1) linear warmup for warmup_iters steps
         if it < config.warmup_steps:
             return config.max_lr * (it+1) / (config.warmup_steps)
