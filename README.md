@@ -41,7 +41,7 @@ docker compose up --build
 
 The final model was fine-tuned for solar-panel condition detection using the Stage 1 solar-panel detector as initialization.
 
-### Evaluation Results
+### Evaluation Results, for Snow 
 
 | Metric | Value |
 | --- | ---: |
