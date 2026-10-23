@@ -30,3 +30,44 @@ jobs:
       - name: Run tests
         run: |
           python -m pytest -q
+
+  publish:
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+
+    strategy:
+      matrix:
+        include:
+          - image: solar-backend
+            context: .
+            dockerfile: Deployment/app/Dockerfile
+
+          - image: solar-frontend
+            context: Deployment/frontend
+            dockerfile: Deployment/frontend/Dockerfile
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and publish image
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: |
+            ghcr.io/ptzatzag/${{ matrix.image }}:latest
+            ghcr.io/ptzatzag/${{ matrix.image }}:${{ github.sha }}
