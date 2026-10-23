@@ -3,8 +3,7 @@ import requests
 from PIL import Image, ImageDraw
 import numpy as np
 
-API_URL = "http://app:8000/predict"   # for docker-compose
-# API_URL = "http://localhost:8000/predict"   # when running local
+API_URL = "http://app:8000/predict"   
 
 st.set_page_config(page_title="Solar Panel Damage Detector", layout="wide")
 st.title("Solar Panel Damage Detector")
