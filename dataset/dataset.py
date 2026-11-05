@@ -191,8 +191,7 @@ class SolarDataset(Dataset):
         return image, target
     
     def _resolve_image_path(self, info):
-      category = info.get("file_name", "").split()[0]
-      return os.path.join(self.dataset_dir, category, info.get("file_name", ""))
+      return os.path.join(self.dataset_dir, info.get("file_name", ""))
 
     @staticmethod
     def _get_albumentations_transforms(train):
